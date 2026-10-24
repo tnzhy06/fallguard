@@ -1,17 +1,3 @@
-/build/
-/.settings/
-/.mxproject
-/mx.scratch
-
-# Project documents and handoff archive stay local.
-*.md
-*.pdf
-*.docx
-*.zip
-
-# Build outputs outside the default build directory.
-*.elf
-*.map
-*.bin
-*.hex
-*.log
+build
+mx.scratch
+!.settings
