@@ -44,12 +44,20 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
+    BSP/bsp_led.c
+    BSP/bsp_key.c
+    BSP/bsp_delay.c
+    BSP/bsp_oled.c
+    ThirdParty/zeruns_oled/oled_data.c
+    App/app_main.c
+    App/app_ui.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
+    BSP
+    App
+    ThirdParty/zeruns_oled
 )
 
 # Add project symbols (macros)

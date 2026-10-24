@@ -26,7 +26,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "app_main.h"
+#include <errno.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +60,32 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void c03_diagnostic_poll(void)
+{
+    static uint32_t last_tick;
+    uint32_t now = HAL_GetTick();
+    RTC_TimeTypeDef time;
 
+    if ((uint32_t)(now - last_tick) < 1000U)
+    {
+        return;
+    }
+    last_tick = now;
+
+    if (HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN) == HAL_OK)
+    {
+        printf("[C03] tick=%lu rtc=%02u:%02u:%02u tim2=%u\r\n",
+               (unsigned long)now,
+               (unsigned int)time.Hours,
+               (unsigned int)time.Minutes,
+               (unsigned int)time.Seconds,
+               (unsigned int)__HAL_TIM_GET_COUNTER(&htim2));
+    }
+    else
+    {
+        printf("[C03] tick=%lu RTC read failed\r\n", (unsigned long)now);
+    }
+}
 /* USER CODE END 0 */
 
 /**
@@ -97,7 +124,24 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  setvbuf(stdout, NULL, _IONBF, 0);
 
+  printf("\r\n=== fallguard C03 ===\r\n");
+  printf("[C03] HCLK=%lu Hz LSE_READY=%lu\r\n",
+         (unsigned long)HAL_RCC_GetHCLKFreq(),
+         (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
+
+  if (HAL_TIM_Base_Start(&htim2) != HAL_OK)
+  {
+    printf("[C03] TIM2 start failed\r\n");
+    Error_Handler();
+  }
+
+  app_init();
+
+  printf("[C03] TIM2 started; RTC time uncalibrated\r\n");
+  printf("[C03] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
+  printf("[C03] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,6 +151,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    app_run();
+    c03_diagnostic_poll();
   }
   /* USER CODE END 3 */
 }
@@ -159,7 +205,28 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+int _write(int file, char *ptr, int len)
+{
+    (void)file;
 
+    if (len == 0)
+    {
+        return 0;
+    }
+    if ((len < 0) || (len > UINT16_MAX))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /* Bound logging time so a UART fault cannot stall the polling loop. */
+    if (HAL_UART_Transmit(&huart1, (uint8_t *)ptr, (uint16_t)len, 20U) != HAL_OK)
+    {
+        errno = EIO;
+        return -1;
+    }
+    return len;
+}
 /* USER CODE END 4 */
 
 /**
