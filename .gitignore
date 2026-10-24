@@ -1,3 +1,50 @@
-build
-mx.scratch
-!.settings
+# CMake and CubeMX temporary output
+/build/
+/mx.scratch/
+
+# Compiler and debugger output, including bundled reference examples
+*.o
+*.obj
+*.OBJ
+*.axf
+*.elf
+*.hex
+*.map
+*.d
+*.dep
+*.crf
+*.lst
+*.LST
+*.tra
+*.plg
+**/OBJ/
+**/Objects/
+**/Listings/
+*.build_log.htm
+main.htm
+JLinkLog.txt
+JLinkSettings.ini
+
+# Local IDE state and backups
+*.uvgui*
+*.uvopt*
+*.uvproj.saved_uv4
+*.bak
+*.log
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
+# Executable utilities and extensionless 8051 build output in reference material
+*.exe
+/docs/**/main
+
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Keil 8051 linker reports
+*.M51
+*.m51
