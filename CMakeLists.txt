@@ -48,6 +48,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/bsp_key.c
     BSP/bsp_delay.c
     BSP/bsp_oled.c
+    BSP/bsp_mpu6050.c
+    ThirdParty/leech001_mpu6050/mpu6050.c
     ThirdParty/zeruns_oled/oled_data.c
     App/app_main.c
     App/app_ui.c
@@ -58,6 +60,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     BSP
     App
     ThirdParty/zeruns_oled
+    ThirdParty/leech001_mpu6050
 )
 
 # Add project symbols (macros)

@@ -48,7 +48,7 @@ static void draw_page(uint32_t now)
 
     if (page == 0U)
     {
-        BSP_OLED_ShowString(0U, 0U, "FALLGUARD C03", BSP_OLED_8X16);
+        BSP_OLED_ShowString(0U, 0U, "FALLGUARD C04", BSP_OLED_8X16);
         BSP_OLED_ShowString(0U, 20U, "SSD1306 / SOFT I2C", BSP_OLED_6X8);
         snprintf(line, sizeof(line), "UP %lus", (unsigned long)(now / 1000U));
         BSP_OLED_ShowString(0U, 34U, line, BSP_OLED_6X8);
@@ -87,11 +87,11 @@ void app_ui_poll(void)
         last_oled_state = state;
         if (state == BSP_OLED_READY)
         {
-            printf("[C03] OLED init ACK OK @0x3C\r\n");
+            printf("[C04] OLED init ACK OK @0x3C\r\n");
         }
         else if (state == BSP_OLED_ERROR)
         {
-            printf("[C03] OLED bus/ACK failed; check PB4/PB5, pull-ups and 0x3C\r\n");
+            printf("[C04] OLED bus/ACK failed; check PB4/PB5, pull-ups and 0x3C\r\n");
         }
     }
 
