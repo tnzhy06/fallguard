@@ -30,6 +30,7 @@
 #include "debug_config.h"
 #include "bsp_gps.h"
 #include "bsp_jq8900.h"
+#include "bsp_esp.h"
 #include <errno.h>
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -55,6 +56,9 @@
 static uint8_t gps_rx_byte;
 static volatile uint8_t gps_rx_retry;
 static uint32_t gps_rx_retry_tick;
+static uint8_t esp_rx_byte;
+static volatile uint8_t esp_rx_retry;
+static uint32_t esp_rx_retry_tick;
 
 /* USER CODE END PV */
 
@@ -73,6 +77,15 @@ static void gps_receive_start(void)
     gps_rx_retry = (status != HAL_OK) && (huart2.RxState != HAL_UART_STATE_BUSY_RX);
     if (gps_rx_retry != 0U)
         BSP_GPS_RxError(HAL_UART_GetError(&huart2) | 0x80000000UL);
+}
+
+static void esp_receive_start(void)
+{
+    HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart3, &esp_rx_byte, 1U);
+
+    esp_rx_retry = (status != HAL_OK) && (huart3.RxState != HAL_UART_STATE_BUSY_RX);
+    if (esp_rx_retry != 0U)
+        BSP_ESP_RxError(HAL_UART_GetError(&huart3) | 0x80000000UL);
 }
 /* USER CODE END 0 */
 
@@ -115,7 +128,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C07 ===\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C08 time ===\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
@@ -131,9 +144,11 @@ int main(void)
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
+  esp_receive_start();
+  esp_rx_retry_tick = HAL_GetTick();
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] TIM2 started; RTC time uncalibrated\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C08] TIM2 started; RTC validity shown on time page\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */
@@ -150,6 +165,12 @@ int main(void)
     {
       gps_rx_retry_tick = HAL_GetTick();
       gps_receive_start();
+    }
+    if ((esp_rx_retry != 0U) &&
+        ((uint32_t)(HAL_GetTick() - esp_rx_retry_tick) >= 5U))
+    {
+      esp_rx_retry_tick = HAL_GetTick();
+      esp_receive_start();
     }
     app_run();
   }
@@ -221,6 +242,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             gps_receive_start();
         }
     }
+    else if (huart == &huart3)
+    {
+        if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE)
+        {
+            BSP_ESP_RxByte(esp_rx_byte);
+            esp_receive_start();
+        }
+    }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
@@ -230,6 +259,12 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
         BSP_GPS_RxError(HAL_UART_GetError(huart));
         if (huart->RxState == HAL_UART_STATE_READY)
             gps_receive_start();
+    }
+    else if (huart == &huart3)
+    {
+        BSP_ESP_RxError(HAL_UART_GetError(huart));
+        if (huart->RxState == HAL_UART_STATE_READY)
+            esp_receive_start();
     }
 }
 

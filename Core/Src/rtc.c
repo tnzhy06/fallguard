@@ -21,6 +21,7 @@
 #include "rtc.h"
 
 /* USER CODE BEGIN 0 */
+#include "bsp_rtc.h"
 
 /* USER CODE END 0 */
 
@@ -52,7 +53,9 @@ void MX_RTC_Init(void)
   }
 
   /* USER CODE BEGIN Check_RTC_BKUP */
-
+  /* Preserve the counter: BSP keeps the F1 calendar epoch in backup registers. */
+  if (BSP_RTC_HasBackup())
+    return;
   /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date

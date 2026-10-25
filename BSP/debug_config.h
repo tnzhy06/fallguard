@@ -8,13 +8,17 @@
 #define DEBUG_LOG_BOOT            0
 #define DEBUG_LOG_STATUS          0
 #define DEBUG_LOG_KEYS            0
-#define DEBUG_LOG_ERRORS          1
-#define DEBUG_LOG_FALL            1
-#define DEBUG_LOG_JQ              1
+#define DEBUG_LOG_ERRORS          0
+#define DEBUG_LOG_FALL            0
+#define DEBUG_LOG_JQ              0
+#define DEBUG_LOG_ESP             1
+#define DEBUG_LOG_ESP_RX          1
+#define DEBUG_LOG_TIME            1
+#define DEBUG_TIME_PERIOD_MS      1000U
 
-#define DEBUG_LOG_MPU_ACCEL       1
-#define DEBUG_LOG_MPU_GYRO        1
-#define DEBUG_LOG_MPU_ANGLES      1
+#define DEBUG_LOG_MPU_ACCEL       0
+#define DEBUG_LOG_MPU_GYRO        0
+#define DEBUG_LOG_MPU_ANGLES      0
 #define DEBUG_MPU_PERIOD_MS       200U
 
 #define DEBUG_LOG_GPS_FIX         0

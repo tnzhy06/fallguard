@@ -41,6 +41,7 @@ Thumbs.db
 /docs/**/main
 
 # Local credentials
+/BSP/esp_config_local.h
 .env
 .env.*
 !.env.example

@@ -83,6 +83,7 @@ fallguard/
 │   ├─ app_main.c/h      调度器 + 系统状态机
 │   ├─ app_fall.c/h      60°持续1秒的简单倾斜演示
 │   ├─ app_voice.c/h     C07 报警语音与 BUSY 重播
+│   ├─ app_time.c/h      C08 SNTP 校时与 RTC 调度
 │   ├─ app_report.c/h    上报调度
 │   ├─ app_ui.c/h        OLED 界面
 │   └─ app_json.c/h      JSON 拼装/解析
@@ -95,6 +96,8 @@ fallguard/
 
 C07 当前实现：PB0 接 VPP、PB1 接 BUSY，TIM3 1 MHz 中断推进一线波形，1 ms 高/4 ms 引导低/500 与 1500 µs 数据位，字节间隔至少 12 ms。用户确认 FLASH 根目录 00001.mp3，自动与手动报警共用，K2 消警发 0x13；BUSY 高转低后按报警状态重播。未用一线循环模式数值。2026-10-26 用户确认 C07 验收通过；未提供示波器测量值，不补写实测结论，详见 `docs/C07验收.md`。
 
+C08 第一部分：USART3 单字节中断+环形缓冲、AT 中断发送、Wi-Fi/SNTP 非阻塞状态机；本地凭据在被 Git 忽略的 `BSP/esp_config_local.h`，空配置仍探测 AT/GMR。按手册 `CIPSNTPCFG=1,8` 获取东八区日历，通过 `bsp_rtc` 写入，GPS UTC 不写 RTC。F1 RTC 使用 BKP DR1～DR4 保存午夜 UTC 基准与校验，复位后恢复累计秒；后续不能另行调用 HAL_RTC_GetTime/SetDate 改动计数器。用户已提供 GMR（AT 2.3.0.0-dev / Bin 2.2.0 ESP8266_1MB）并确认 Wi-Fi GOT IP；单服务器曾返回 1970，改用 aliyun/sjtu/ntp.org.cn 三服务器后用户确认校时可用；VBAT 尚无单独实测记录，见 `docs/C08校时与RTC验收.md`。本轮未接入 MQTT。
+
 GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置与 GSV 信号采用 5 秒过期规则。信号按最大 C/N₀ 分为无（无效/过期/0）、弱（1～29）、中（30～39）、强（40～99 dBHz），不参与 fix 判定；OLED 仅显示 0～3 个信号格，不显示四档中文文字。展示 UTC、经纬度、海拔、卫星数和 HDOP，不展示速度；UTC 不写 RTC。
 
 ---
@@ -106,7 +109,7 @@ GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置
 - **注释只写"为什么"，不写"是什么"。** 比如"按载荷长度截取，避免把 JSON 内部换行当成帧尾"是好的；"// 设置引脚为输出"是废话。
 - **禁止阻塞式长延时**（`HAL_Delay(1000)` 之类）出现在业务逻辑里。要做延时/等待，一律拆成状态机或用 `HAL_GetTick()` 记时间戳。
 - 全局变量尽量少，模块内部状态用 `static`。
-- 调试输出集中在 `BSP/debug_config.h`，新增日志用 `DEBUG_PRINT` 及对应分类；默认输出 MPU 六轴、Roll/Pitch、错误、跌倒与语音事件，关闭输出不影响采样、接收和显示。
+- 调试输出集中在 `BSP/debug_config.h`，新增日志用 `DEBUG_PRINT` 及对应分类；当前仅输出 C08 ESP 步骤、原始响应与 RTC 时间/校时，其他分类及通用错误关闭；ESP/RTC 自身错误随 ESP/TIME 分类保留，关闭输出不影响采样、接收和显示。
 - UART 中断里只搬数据、重新挂接收和处理必要接收错误，不解析、不 printf。若 C07 使用定时器驱动一线波形，定时器中断只推进边沿，不执行业务。
 - JQ8900 的长引导码和字节间隔不能用业务阻塞延时，也不能整字节关闭全局中断；不引入 DMA，不擅自改成 IO 触发或两线串口。
 

@@ -5,6 +5,8 @@
 #include "bsp_oled.h"
 #include "bsp_gps.h"
 #include "bsp_mpu6050.h"
+#include "bsp_rtc.h"
+#include "bsp_esp.h"
 #include "stm32f1xx_hal.h"
 #include <stdio.h>
 
@@ -16,7 +18,7 @@ static bsp_oled_state_t last_oled_state;
 
 void app_ui_init(void)
 {
-    page = 5U;
+    page = 6U;
     alarm_active = 0U;
     dirty = 1U;
     last_refresh = HAL_GetTick();
@@ -26,7 +28,7 @@ void app_ui_init(void)
 
 void app_ui_next_page(void)
 {
-    page = (uint8_t)((page + 1U) % 6U);
+    page = (uint8_t)((page + 1U) % 7U);
     dirty = 1U;
 }
 
@@ -134,6 +136,35 @@ static void draw_page(uint32_t now)
             BSP_OLED_ShowString(10U, 52U, message, BSP_OLED_6X8);
         }
         BSP_OLED_Reverse();
+        return;
+    }
+
+    if (page == 6U)
+    {
+        static const char *const states[] = {"BOOT", "AT", "ATE0", "GMR", "STA", "JOIN",
+            "SNTP CFG", "SNTP WAIT", "UP", "RETRY", "RESET", "SET WIFI", "AT REJECT"};
+        const bsp_rtc_data_t *rtc = BSP_RTC_GetData();
+        const bsp_esp_data_t *esp = BSP_ESP_GetData();
+        BSP_OLED_ShowString(0U, 0U, "RTC UTC+8", BSP_OLED_8X16);
+        if (rtc->valid)
+        {
+            snprintf(line, sizeof(line), "%04u-%02u-%02u", (unsigned int)rtc->local.year,
+                     (unsigned int)rtc->local.month, (unsigned int)rtc->local.day);
+            BSP_OLED_ShowString(0U, 18U, line, BSP_OLED_6X8);
+            snprintf(line, sizeof(line), "%02u:%02u:%02u", (unsigned int)rtc->local.hour,
+                     (unsigned int)rtc->local.minute, (unsigned int)rtc->local.second);
+            BSP_OLED_ShowString(0U, 28U, line, BSP_OLED_8X16);
+            snprintf(line, sizeof(line), "ts:%lu", (unsigned long)rtc->unix_utc);
+        }
+        else
+        {
+            BSP_OLED_ShowString(0U, 18U, "----/--/--", BSP_OLED_6X8);
+            BSP_OLED_ShowString(0U, 28U, "--:--:--", BSP_OLED_8X16);
+            snprintf(line, sizeof(line), rtc->error ? "RTC ERROR ts:0" : "TIME UNSET ts:0");
+        }
+        BSP_OLED_ShowString(0U, 46U, line, BSP_OLED_6X8);
+        snprintf(line, sizeof(line), "WiFi:%u %s", (unsigned int)esp->wifi_connected, states[esp->state]);
+        BSP_OLED_ShowString(0U, 56U, line, BSP_OLED_6X8);
         return;
     }
 

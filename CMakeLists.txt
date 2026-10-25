@@ -42,9 +42,16 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
+# Keep credentials local while allowing a clean checkout to build.
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h")
+    configure_file(BSP/esp_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h" COPYONLY)
+endif()
+
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/bsp_jq8900.c
+    BSP/bsp_rtc.c
+    BSP/bsp_esp.c
     BSP/bsp_led.c
     BSP/bsp_key.c
     BSP/bsp_delay.c
@@ -55,6 +62,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ThirdParty/lwgps/src/lwgps/lwgps.c
     ThirdParty/zeruns_oled/oled_data.c
     App/app_voice.c
+    App/app_time.c
     App/app_fall.c
     App/app_main.c
     App/app_ui.c
