@@ -37,7 +37,7 @@
 | 引脚 | 功能 | 外设 | 参数 | 来源 |
 |---|---|---|---|---|
 | PA9 / PA10 | 调试串口 | USART1 | 115200 8N1 | 约束 |
-| PA2 / PA3 | GPS | USART2 | 9600 8N1 | 开发文档 |
+| PA2 / PA3 | GPS | USART2 | 115200 8N1 | 用户已将 ATGM336H 模块设为 115200；开发文档 |
 | PB10 / PB11 | ESP-01S | USART3 | 115200 8N1 | 开发文档 |
 | PB12 | ESP-01S EN | GPIO 输出 | 默认高 | 开发文档 |
 | PB6 / PB7 | MPU6050 | I2C1 | 400 kHz | 开发文档 |
@@ -91,6 +91,8 @@ fallguard/
 **依赖方向**：`App → BSP → HAL`，第三方库由对应 BSP 封装。BSP 不许调 App；App 不直接操作外设句柄或寄存器，RTC 通过 `bsp_rtc` 读写。仅允许 App 调度及时间戳轮询使用 `HAL_GetTick()`，不为这一项增加时钟抽象。Core 的 USER CODE 块负责初始化和中断接收接入。
 
 **协议依据**：ESP-01S 已刷入 **1471 号固件**；这个编号不等于已确认的 AT/SDK 版本。AT MQTT/SNTP 语法以 `docs/ESP-AT User Guide.pdf` 为准，保留 MQTT 的 `LinkID=0`，不切换到所谓“去掉 LinkID 的 NonOS MQTT”方案。JQ8900 一线协议以 `docs/JQ8900语音模块16p.pdf` 为准；图与示例不一致处见开发文档 5.3，需实测后定稿。
+
+GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置与 GSV 信号采用 5 秒过期规则。信号按最大 C/N₀ 分为无（无效/过期/0）、弱（1～29）、中（30～39）、强（40～99 dBHz），不参与 fix 判定；OLED 仅显示 0～3 个信号格，不显示四档中文文字。展示 UTC、经纬度、海拔、卫星数和 HDOP，不展示速度；UTC 不写 RTC。
 
 ---
 

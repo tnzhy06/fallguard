@@ -27,6 +27,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.h"
+#include "bsp_gps.h"
 #include <errno.h>
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -49,6 +50,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+static uint8_t gps_rx_byte;
+static volatile uint8_t gps_rx_retry;
+static uint32_t gps_rx_retry_tick;
 
 /* USER CODE END PV */
 
@@ -60,6 +64,14 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void gps_receive_start(void)
+{
+    HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart2, &gps_rx_byte, 1U);
+
+    gps_rx_retry = (status != HAL_OK) && (huart2.RxState != HAL_UART_STATE_BUSY_RX);
+    if (gps_rx_retry != 0U)
+        BSP_GPS_RxError(HAL_UART_GetError(&huart2) | 0x80000000UL);
+}
 /* USER CODE END 0 */
 
 /**
@@ -100,23 +112,26 @@ int main(void)
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  printf("\r\n=== fallguard C04 ===\r\n");
-  printf("[C04] HCLK=%lu Hz LSE_READY=%lu\r\n",
+  printf("\r\n=== fallguard C05 ===\r\n");
+  printf("[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
 
   if (HAL_TIM_Base_Start(&htim2) != HAL_OK)
   {
-    printf("[C04] TIM2 start failed\r\n");
+    printf("[C05] TIM2 start failed\r\n");
     Error_Handler();
   }
 
-  printf("[C04] MPU6050 @0x68: keep STILL for boot gyro calibration (~3s)\r\n");
+  printf("[C05] MPU6050 @0x68: keep STILL for boot gyro calibration (~3s)\r\n");
   app_init();
+  gps_receive_start();
+  gps_rx_retry_tick = HAL_GetTick();
+  printf("[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
 
-  printf("[C04] TIM2 started; RTC time uncalibrated\r\n");
-  printf("[C04] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
-  printf("[C04] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
+  printf("[C05] TIM2 started; RTC time uncalibrated\r\n");
+  printf("[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
+  printf("[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,6 +141,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if ((gps_rx_retry != 0U) &&
+        ((uint32_t)(HAL_GetTick() - gps_rx_retry_tick) >= 5U))
+    {
+      gps_rx_retry_tick = HAL_GetTick();
+      gps_receive_start();
+    }
     app_run();
   }
   /* USER CODE END 3 */
@@ -179,6 +200,29 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == &huart2)
+    {
+        /* Rearming clears ErrorCode before HAL can finish handling an overrun. */
+        if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE)
+        {
+            BSP_GPS_RxByte(gps_rx_byte);
+            gps_receive_start();
+        }
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == &huart2)
+    {
+        BSP_GPS_RxError(HAL_UART_GetError(huart));
+        if (huart->RxState == HAL_UART_STATE_READY)
+            gps_receive_start();
+    }
+}
+
 int _write(int file, char *ptr, int len)
 {
     (void)file;

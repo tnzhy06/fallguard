@@ -162,14 +162,16 @@ PB4/PB5 不具备 F103 硬件 I2C 复用功能，因此使用 zeruns 的软件 I
 | 外设 | 引脚 | Baud Rate | Word Length | Parity | Stop Bits | 用途 |
 |---|---|---|---|---|---|---|
 | **USART1** | PA9(TX) / PA10(RX) | **115200** | 8 Bits | None | 1 | 调试串口，printf |
-| **USART2** | PA2(TX) / PA3(RX) | **9600** | 8 Bits | None | 1 | GPS ATGM336H |
+| **USART2** | PA2(TX) / PA3(RX) | **115200** | 8 Bits | None | 1 | GPS ATGM336H |
 | **USART3** | PB10(TX) / PB11(RX) | **115200** | 8 Bits | None | 1 | ESP-01S |
 
 三个的 **Hardware Flow Control (RS485/RS232)** 都保持 **Disable**。
 
 **⚠️ 不要勾 DMA Settings。** 本项目三个串口都用单字节中断接收，不需要 DMA（原因见开发文档 4.3）。
 
-> ATGM336H 默认就是 9600，如果它的 E2PROM 里被改过波特率，就按实际值改。
+> ATGM336H 原厂默认是 9600；用户已将实际模块波特率设置为 115200，当前 USART2 同为 115200 8N1。使用模拟发送端时也应设置为 115200。
+
+C05 在 `main.c` 的 USER CODE 块接入 USART2 单字节 `HAL_UART_Receive_IT`，中断仅入环形缓冲并重挂接收，主循环解析 NMEA。不配置 DMA，详细接线和回放验收见 [C05验收](C05验收.md)。
 
 ### 4.5 I2C1（MPU6050）
 
@@ -405,7 +407,7 @@ openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program build/Debug/f
 | **OLED 完全不亮** | PB4 还是 JTAG 的 NJTRST | 检查 SYS → Debug 是否选了 **Serial Wire**；生成后在 `gpio.c` 或 `HAL_MspInit` 里应该能看到 `__HAL_AFIO_REMAP_SWJ_NOJTAG()` |
 | **RTC 不走 / 初始化进 Error_Handler** | ① LSE 没起振 ② 备份域残留了旧的 RTC 配置 | ① 实测 LSE 起振并确认 RCC 返回值 ② 检查备份域时钟源残留；确需清备份域时先开启备份域写访问，复位后重新配置 RTC 的 LSE 时钟选择，再初始化 RTC。复位会清除备份域配置，不把单独两条复位宏永久放在 MX_RTC_Init 前 |
 | **RTC 时间乱跳** | 分频不对 | 确认时钟树里 RTC Source = **LSE**，CubeMX 会自动配 32767 分频 |
-| **串口收到乱码** | 波特率不匹配 | USART1/3 必须 115200，USART2 必须 9600，串口助手也要对上 |
+| **串口收到乱码** | 波特率不匹配 | USART1/2/3 当前均为 115200，串口助手和 GPS 模块发端也要匹配 |
 | **`printf` 没输出** | 缓冲没关 / 没重定向 | 确认加了 `setvbuf(stdout, NULL, _IONBF, 0)` 和 `_write` |
 | **编译报 `_write` 重定义** | 和 syscalls 冲突 | 保留一份 strong _write；生成的 weak _write 可由其覆盖。或只实现 __io_putchar。两份 strong 定义才需删去重复，不能靠再加 weak 声明保证选择正确实现 |
 | **编译报 `LED_Pin` / `KEY1_Pin` 未定义** | 忘了设 User Label | 回到 System Core → GPIO 面板，最右列 User Label 填上第 4.0 节的标签，重新 Generate Code |
@@ -421,7 +423,7 @@ openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program build/Debug/f
 
 | 引脚          | 功能           | **User Label**          | 外设     | 模式                       |
 | ----------- | ------------ | ----------------------- | ------ | ------------------------ |
-| PA2 / PA3   | GPS          | —                       | USART2 | Async 9600               |
+| PA2 / PA3   | GPS          | —                       | USART2 | Async 115200               |
 | PA8         | LED          | `LED`                   | GPIO   | Out PP, Low, 初始 High     |
 | PA9 / PA10  | 调试           | —                       | USART1 | Async 115200             |
 | PB0         | JQ8900 SDA   | `JQ_SDA`                | GPIO   | Out PP, Low, 初始 High     |
