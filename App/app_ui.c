@@ -1,6 +1,9 @@
 #include "app_ui.h"
+#include "app_fall.h"
+#include "debug_config.h"
 #include "bsp_oled.h"
 #include "bsp_gps.h"
+#include "bsp_mpu6050.h"
 #include "stm32f1xx_hal.h"
 #include <stdio.h>
 
@@ -12,7 +15,7 @@ static bsp_oled_state_t last_oled_state;
 
 void app_ui_init(void)
 {
-    page = 0U;
+    page = 5U;
     alarm_active = 0U;
     dirty = 1U;
     last_refresh = HAL_GetTick();
@@ -22,28 +25,110 @@ void app_ui_init(void)
 
 void app_ui_next_page(void)
 {
-    page = (uint8_t)((page + 1U) % 5U);
+    page = (uint8_t)((page + 1U) % 6U);
     dirty = 1U;
 }
 
 void app_ui_set_alarm(uint8_t active)
 {
-    alarm_active = active;
-    dirty = 1U;
+    if (alarm_active != active)
+    {
+        alarm_active = active;
+        dirty = 1U;
+    }
+}
+
+static void draw_mpu_page(void)
+{
+    static const char *const accel_labels[] = {"AX", "AY", "AZ"};
+    static const char *const gyro_labels[] = {"GX", "GY", "GZ"};
+    static const char *const angle_labels[] = {"Roll ", "Pitch"};
+    const bsp_mpu6050_sample_t *sample = BSP_MPU6050_GetSample();
+    bsp_mpu6050_state_t state = BSP_MPU6050_GetState();
+    uint8_t valid = (state == BSP_MPU6050_READY) && (sample->samples != 0U);
+    char line[32];
+    const char *title = "MPU6050 INIT";
+
+    if (state == BSP_MPU6050_CALIBRATING)
+        title = "MPU6050 CAL...";
+    else if (state == BSP_MPU6050_ERROR)
+        title = "MPU6050 ERROR";
+    else if (valid)
+        title = "MPU6050 LIVE";
+    BSP_OLED_ShowString(0U, 0U, title, BSP_OLED_6X8);
+    for (uint8_t i = 0U; i < 3U; ++i)
+    {
+        if (valid)
+        {
+            long value = (long)sample->accel_mg[i];
+            long magnitude = value < 0 ? -value : value;
+            snprintf(line, sizeof(line), "%s:%c%ld.%03ld", accel_labels[i], value < 0 ? '-' : '+',
+                     magnitude / 1000L, magnitude % 1000L);
+        }
+        else
+            snprintf(line, sizeof(line), "%s:--", accel_labels[i]);
+        BSP_OLED_ShowString(0U, (uint8_t)(8U + 8U*i), line, BSP_OLED_6X8);
+        if (valid)
+        {
+            long value = (long)sample->gyro_mdps[i];
+            long magnitude = value < 0 ? -value : value;
+            snprintf(line, sizeof(line), "%s:%c%ld.%02ld", gyro_labels[i], value < 0 ? '-' : '+',
+                     magnitude / 1000L, (magnitude % 1000L) / 10L);
+        }
+        else
+            snprintf(line, sizeof(line), "%s:--", gyro_labels[i]);
+        BSP_OLED_ShowString(66U, (uint8_t)(8U + 8U*i), line, BSP_OLED_6X8);
+    }
+    for (uint8_t i = 0U; i < 2U; ++i)
+    {
+        if (valid)
+        {
+            long value = (long)sample->angle_cdeg[i];
+            long magnitude = value < 0 ? -value : value;
+            snprintf(line, sizeof(line), "%s: %c%ld.%02ld deg", angle_labels[i], value < 0 ? '-' : '+',
+                     magnitude / 100L, magnitude % 100L);
+        }
+        else
+            snprintf(line, sizeof(line), "%s: -- deg", angle_labels[i]);
+        BSP_OLED_ShowString(0U, (uint8_t)(32U + 8U*i), line, BSP_OLED_6X8);
+    }
+    BSP_OLED_ShowString(0U, 48U, "A:g G:deg/s", BSP_OLED_6X8);
+    if (valid)
+    {
+        const app_fall_data_t *fall = app_fall_get_data();
+        if (fall->state == APP_FALL_HOLDING)
+            snprintf(line, sizeof(line), "HOLD:%lu/%lums", (unsigned long)fall->held_ms,
+                     (unsigned long)APP_FALL_HOLD_MS);
+        else if (fall->state == APP_FALL_WAIT_UPRIGHT)
+            snprintf(line, sizeof(line), "RAISE TO REARM");
+        else
+            snprintf(line, sizeof(line), "FALL:READY DT:%lu", (unsigned long)sample->interval_ms);
+    }
+    else
+        snprintf(line, sizeof(line), state == BSP_MPU6050_ERROR ? "CHECK PB6/PB7 AD0=0" : "KEEP STILL (~3s)");
+    BSP_OLED_ShowString(0U, 56U, line, BSP_OLED_6X8);
 }
 
 static void draw_page(uint32_t now)
 {
-    char line[22];
+    char line[32];
 
     BSP_OLED_Clear();
     if (alarm_active != 0U)
     {
-        BSP_OLED_ShowString(24U, 0U, "TEST ALARM", BSP_OLED_8X16);
+        BSP_OLED_ShowString(24U, 0U,
+                           app_fall_get_data()->source == APP_FALL_SOURCE_AUTO ? "FALL DEMO" : "TEST ALARM",
+                           BSP_OLED_8X16);
         BSP_OLED_DrawLine(0U, 19U, 127U, 19U);
         BSP_OLED_ShowString(16U, 28U, "K2 TO CANCEL", BSP_OLED_8X16);
-        BSP_OLED_ShowString(19U, 52U, "LOCAL TEST ONLY", BSP_OLED_6X8);
+        BSP_OLED_ShowString(19U, 52U, "COURSE DEMO ONLY", BSP_OLED_6X8);
         BSP_OLED_Reverse();
+        return;
+    }
+
+    if (page == 5U)
+    {
+        draw_mpu_page();
         return;
     }
 
@@ -158,6 +243,7 @@ static void draw_page(uint32_t now)
         BSP_OLED_DrawRectangle(8U, 52U, 112U, 8U, BSP_OLED_UNFILLED);
         BSP_OLED_DrawRectangle(10U, 54U, width, 4U, BSP_OLED_FILLED);
     }
+
 }
 
 void app_ui_poll(void)
@@ -172,11 +258,11 @@ void app_ui_poll(void)
         last_oled_state = state;
         if (state == BSP_OLED_READY)
         {
-            printf("[C05] OLED init ACK OK @0x3C\r\n");
+            DEBUG_PRINT(DEBUG_LOG_STATUS, "[C05] OLED init ACK OK @0x3C\r\n");
         }
         else if (state == BSP_OLED_ERROR)
         {
-            printf("[C05] OLED bus/ACK failed; check PB4/PB5, pull-ups and 0x3C\r\n");
+            DEBUG_PRINT(DEBUG_LOG_ERRORS, "[C05] OLED bus/ACK failed; check PB4/PB5, pull-ups and 0x3C\r\n");
         }
     }
 

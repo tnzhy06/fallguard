@@ -32,6 +32,7 @@
  */
 
 #include "mpu6050.h"
+#include "debug_config.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -56,7 +57,7 @@ static uint8_t i2c_ok(I2C_HandleTypeDef *i2c, HAL_StatusTypeDef status,
     /* Snapshot the failed transaction before any subsequent bus access. */
     error = HAL_I2C_GetError(i2c);
     busy = (__HAL_I2C_GET_FLAG(i2c, I2C_FLAG_BUSY) != RESET) ? 1U : 0U;
-    printf("[C04] MPU %c reg=0x%02X HAL=%u err=0x%08lX BUSY=%u\r\n",
+    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] %c reg=0x%02X HAL=%u err=0x%08lX BUSY=%u\r\n",
            operation, (unsigned int)reg, (unsigned int)status,
            (unsigned long)error, busy);
     return 0U;
@@ -70,7 +71,7 @@ uint8_t mpu6050_reset(I2C_HandleTypeDef *i2c)
 
     if (i2c_ok(i2c, status, 'W', 0x6B) == 0U)
     {
-        printf("[C04] MPU failed at device reset\r\n");
+        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] failed at device reset\r\n");
         return 0U;
     }
     return 1U;
@@ -94,7 +95,7 @@ uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c)
         return 0U;
     if (check[0] != 0x68U)
     {
-        printf("[C04] MPU WHO_AM_I=0x%02X expected=0x68\r\n", (unsigned int)check[0]);
+        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] WHO_AM_I=0x%02X expected=0x68\r\n", (unsigned int)check[0]);
         return 0U;
     }
 
@@ -117,7 +118,7 @@ uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c)
     {
         if (check[i] != expected[i])
         {
-            printf("[C04] MPU verify reg=0x%02X got=0x%02X expected=0x%02X\r\n",
+            DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] verify reg=0x%02X got=0x%02X expected=0x%02X\r\n",
                    (unsigned int)(0x19U + i), (unsigned int)check[i],
                    (unsigned int)expected[i]);
             return 0U;

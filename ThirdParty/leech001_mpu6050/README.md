@@ -15,3 +15,7 @@ mpu6050.c/h 是本项目修改后的移植版本，2026-10-25：
 寄存器依据：[InvenSense MPU-6000/MPU-6050 Register Map，RM-MPU-6000A-00 Rev 4.2](https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map1.pdf)，重点为 4.2～4.5、4.15～4.20 和电源管理章节。DLPF=3 对应加速度约 44 Hz、陀螺仪约 42 Hz 带宽；1 kHz / (1+9) = 100 Hz。原厂旧链接当前可能重定向到资料搜索页。
 
 限制：此双轴 Kalman 解算沿用上游 restricted-roll 模型，不输出航向，不把剧烈运动下的重力估计当成准确身体倾角。腰带安装参考轴、加速度六面标定与最终量程仍需实际设备确认。
+
+本次重新接入仅用于六轴及 Roll/Pitch 实时显示，复用已审查移植与现有 BSP；已通过连接器核对 upstream master 仍指向上述固定提交，保留 LICENSE 原文。驱动诊断前缀统一为 [MPU]，App 在一次快照上分时输出三行，OLED 约每 100 ms 刷新；不恢复 C06 采集缓冲、相对身体倾角或自动跌倒状态机。
+
+调试过滤：错误打印通过项目 BSP/debug_config.h 的 DEBUG_PRINT/DEBUG_LOG_ERRORS 及总开关控制；仅改变诊断输出，不改变 I2C 返回值、错误状态或姿态计算。

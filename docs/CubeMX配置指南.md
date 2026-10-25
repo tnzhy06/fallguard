@@ -333,7 +333,7 @@ printf("\r\n=== fallguard boot ===\r\n");
 fallguard/
 ├─ BSP/          bsp_led.c/h  bsp_key.c/h  bsp_delay.c/h  bsp_oled.c/h
 │                bsp_mpu6050.c/h  bsp_gps.c/h  bsp_esp.c/h  bsp_jq8900.c/h  bsp_rtc.c/h
-├─ App/          app_main.c/h  app_fall.c/h  app_report.c/h  app_ui.c/h  app_json.c/h
+├─ App/          app_main.c/h  app_report.c/h  app_ui.c/h  app_json.c/h
 └─ ThirdParty/   lwgps/  所选 OLED 驱动配套字库
 ```
 

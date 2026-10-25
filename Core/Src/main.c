@@ -27,6 +27,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.h"
+#include "debug_config.h"
 #include "bsp_gps.h"
 #include <errno.h>
 #include <stdio.h>
@@ -112,26 +113,26 @@ int main(void)
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  printf("\r\n=== fallguard C05 ===\r\n");
-  printf("[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard GPS + MPU6050 ===\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
 
   if (HAL_TIM_Base_Start(&htim2) != HAL_OK)
   {
-    printf("[C05] TIM2 start failed\r\n");
+    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[C05] TIM2 start failed\r\n");
     Error_Handler();
   }
 
-  printf("[C05] MPU6050 @0x68: keep STILL for boot gyro calibration (~3s)\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[MPU] PB6=SCL PB7=SDA @0x68; keep STILL (~3s), 100Hz 2g/250dps\r\n");
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
-  printf("[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
 
-  printf("[C05] TIM2 started; RTC time uncalibrated\r\n");
-  printf("[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
-  printf("[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] TIM2 started; RTC time uncalibrated\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
