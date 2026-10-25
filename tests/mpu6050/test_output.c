@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "app_ui.h"
+#include "app_voice.h"
 #include "debug_config.h"
 #include "bsp_mpu6050.h"
 #include "bsp_gps.h"
@@ -12,7 +13,10 @@ static uint32_t now;
 static bsp_mpu6050_sample_t sensor;
 static bsp_mpu6050_state_t mock_state;
 static bsp_gps_data_t gps;
-static uint8_t pressed, ui_alarm;
+static uint8_t pressed, ui_alarm, voice_alarm;
+static unsigned int voice_polls;
+void app_voice_init(void) {voice_polls=0;voice_alarm=0;}
+void app_voice_poll(uint8_t alarm_active) {++voice_polls;voice_alarm=alarm_active;}
 static bsp_led_mode_t led_mode;
 static unsigned int a_frames, g_frames, rp_frames, gps_lines, gps_polls, print_calls;
 static unsigned long frame_n;
@@ -73,7 +77,7 @@ int main(void) {
  app_init();mock_state=BSP_MPU6050_READY;
  for(i=0;i<240;++i){now+=10;app_run();}
  while(mpu_log_phase){now+=10;app_run();}
- assert(gps_polls>=240 && sensor.samples>=240);
+ assert(gps_polls>=240 && sensor.samples>=240 && voice_polls==gps_polls);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_ACCEL ? a_frames>=10 : a_frames==0);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_GYRO ? g_frames>=10 : g_frames==0);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_ANGLES ? rp_frames>=10 : rp_frames==0);
@@ -88,9 +92,9 @@ int main(void) {
  for(i=0;i<30;++i){now+=10;app_run();}
  assert(a_frames==before && gps_polls>=270);
  pressed=BSP_KEY2_PRESSED;now+=10;app_run();
- assert(ui_alarm && led_mode==BSP_LED_ALARM && app_fall_get_data()->source==APP_FALL_SOURCE_MANUAL);
+ assert(voice_alarm && ui_alarm && led_mode==BSP_LED_ALARM && app_fall_get_data()->source==APP_FALL_SOURCE_MANUAL);
  pressed=BSP_KEY2_PRESSED;now+=10;app_run();
- assert(!ui_alarm && led_mode==BSP_LED_OFFLINE && app_fall_get_data()->state==APP_FALL_WAIT_UPRIGHT);
+ assert(!voice_alarm && !ui_alarm && led_mode==BSP_LED_OFFLINE && app_fall_get_data()->state==APP_FALL_WAIT_UPRIGHT);
  if(!DEBUG_OUTPUT_ENABLE)assert(print_calls==0);
  puts("PASS debug filtering, enabled-field cadence, coherent snapshots, sensor/GPS polling and error state");
  return 0;

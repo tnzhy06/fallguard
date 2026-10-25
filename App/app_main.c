@@ -2,6 +2,7 @@
 #include "debug_config.h"
 #include "app_ui.h"
 #include "app_fall.h"
+#include "app_voice.h"
 #include "bsp_key.h"
 #include "bsp_led.h"
 #include "bsp_gps.h"
@@ -189,6 +190,7 @@ void app_init(void)
     BSP_GPS_Init();
     BSP_MPU6050_Init();
     app_fall_init();
+    app_voice_init();
     last_fall_state = APP_FALL_IDLE;
     last_mpu_state = BSP_MPU6050_STARTING;
     mpu_log_phase = 0U;
@@ -223,6 +225,7 @@ void app_run(void)
     BSP_MPU6050_Poll();
     BSP_GPS_Poll();
     app_fall_poll();
+    app_voice_poll(app_fall_get_data()->state == APP_FALL_ALARM);
     app_ui_set_alarm(app_fall_get_data()->state == APP_FALL_ALARM);
     if (!fall_event_log_poll() && !mpu_display_log_poll())
         diagnostic_poll();

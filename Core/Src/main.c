@@ -29,6 +29,7 @@
 #include "app_main.h"
 #include "debug_config.h"
 #include "bsp_gps.h"
+#include "bsp_jq8900.h"
 #include <errno.h>
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -110,10 +111,11 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard GPS + MPU6050 ===\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C07 ===\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
@@ -125,6 +127,7 @@ int main(void)
   }
 
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[MPU] PB6=SCL PB7=SDA @0x68; keep STILL (~3s), 100Hz 2g/250dps\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[JQ] PB0->VPP PB1<-BUSY; TIM3 one-wire LSB first\r\n");
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
@@ -201,6 +204,12 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim3)
+        BSP_JQ8900_TimerIRQ();
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart == &huart2)

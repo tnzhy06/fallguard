@@ -43,7 +43,7 @@
 | PB6 / PB7 | MPU6050 | I2C1 | 400 kHz | 开发文档 |
 | PB4 / PB5 | OLED SCL/SDA | GPIO **开漏+外部上拉至 3.3 V** | 软件 I2C | 约束 |
 | PB0 | JQ8900 一线串口 | GPIO 输出 | 空闲高 | 开发文档 |
-| PB1 | JQ8900 BUSY | GPIO 输入 | 可选 | 开发文档 |
+| PB1 | JQ8900 BUSY | GPIO 输入 | 播放高、空闲低；C07 已确认接入 | 开发文档 |
 | PA8 | LED | GPIO 输出 | **低电平点亮** | 约束 |
 | PC8 / PC9 | 按键 K1/K2 | GPIO 输入 | **低电平触发**，上拉 | 约束 |
 | PC14 / PC15 | RTC 晶振 | LSE | 32.768 kHz | 约束 |
@@ -82,6 +82,7 @@ fallguard/
 ├─ App/           业务逻辑，只依赖 BSP
 │   ├─ app_main.c/h      调度器 + 系统状态机
 │   ├─ app_fall.c/h      60°持续1秒的简单倾斜演示
+│   ├─ app_voice.c/h     C07 报警语音与 BUSY 重播
 │   ├─ app_report.c/h    上报调度
 │   ├─ app_ui.c/h        OLED 界面
 │   └─ app_json.c/h      JSON 拼装/解析
@@ -91,6 +92,8 @@ fallguard/
 **依赖方向**：`App → BSP → HAL`，第三方库由对应 BSP 封装。BSP 不许调 App；App 不直接操作外设句柄或寄存器，RTC 通过 `bsp_rtc` 读写。仅允许 App 调度及时间戳轮询使用 `HAL_GetTick()`，不为这一项增加时钟抽象。Core 的 USER CODE 块负责初始化和中断接收接入。
 
 **协议依据**：ESP-01S 已刷入 **1471 号固件**；这个编号不等于已确认的 AT/SDK 版本。AT MQTT/SNTP 语法以 `docs/ESP-AT User Guide.pdf` 为准，保留 MQTT 的 `LinkID=0`，不切换到所谓“去掉 LinkID 的 NonOS MQTT”方案。JQ8900 一线协议以 `docs/JQ8900语音模块16p.pdf` 为准；图与示例不一致处见开发文档 5.3，需实测后定稿。
+
+C07 当前实现：PB0 接 VPP、PB1 接 BUSY，TIM3 1 MHz 中断推进一线波形，1 ms 高/4 ms 引导低/500 与 1500 µs 数据位，字节间隔至少 12 ms。用户确认 FLASH 根目录 00001.mp3，自动与手动报警共用，K2 消警发 0x13；BUSY 高转低后按报警状态重播。未用一线循环模式数值。2026-10-26 用户确认 C07 验收通过；未提供示波器测量值，不补写实测结论，详见 `docs/C07验收.md`。
 
 GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置与 GSV 信号采用 5 秒过期规则。信号按最大 C/N₀ 分为无（无效/过期/0）、弱（1～29）、中（30～39）、强（40～99 dBHz），不参与 fix 判定；OLED 仅显示 0～3 个信号格，不显示四档中文文字。展示 UTC、经纬度、海拔、卫星数和 HDOP，不展示速度；UTC 不写 RTC。
 
@@ -103,7 +106,7 @@ GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置
 - **注释只写"为什么"，不写"是什么"。** 比如"按载荷长度截取，避免把 JSON 内部换行当成帧尾"是好的；"// 设置引脚为输出"是废话。
 - **禁止阻塞式长延时**（`HAL_Delay(1000)` 之类）出现在业务逻辑里。要做延时/等待，一律拆成状态机或用 `HAL_GetTick()` 记时间戳。
 - 全局变量尽量少，模块内部状态用 `static`。
-- 调试输出集中在 `BSP/debug_config.h`，新增日志用 `DEBUG_PRINT` 及对应分类；默认仅 MPU 六轴、Roll/Pitch 和错误，关闭输出不影响采样、接收和显示。
+- 调试输出集中在 `BSP/debug_config.h`，新增日志用 `DEBUG_PRINT` 及对应分类；默认输出 MPU 六轴、Roll/Pitch、错误、跌倒与语音事件，关闭输出不影响采样、接收和显示。
 - UART 中断里只搬数据、重新挂接收和处理必要接收错误，不解析、不 printf。若 C07 使用定时器驱动一线波形，定时器中断只推进边沿，不执行业务。
 - JQ8900 的长引导码和字节间隔不能用业务阻塞延时，也不能整字节关闭全局中断；不引入 DMA，不擅自改成 IO 触发或两线串口。
 

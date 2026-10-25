@@ -10,6 +10,7 @@
 #define DEBUG_LOG_KEYS            0
 #define DEBUG_LOG_ERRORS          1
 #define DEBUG_LOG_FALL            1
+#define DEBUG_LOG_JQ              1
 
 #define DEBUG_LOG_MPU_ACCEL       1
 #define DEBUG_LOG_MPU_GYRO        1

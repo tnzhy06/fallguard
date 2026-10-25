@@ -1,5 +1,6 @@
 #include "app_ui.h"
 #include "app_fall.h"
+#include "app_voice.h"
 #include "debug_config.h"
 #include "bsp_oled.h"
 #include "bsp_gps.h"
@@ -121,7 +122,17 @@ static void draw_page(uint32_t now)
                            BSP_OLED_8X16);
         BSP_OLED_DrawLine(0U, 19U, 127U, 19U);
         BSP_OLED_ShowString(16U, 28U, "K2 TO CANCEL", BSP_OLED_8X16);
-        BSP_OLED_ShowString(19U, 52U, "COURSE DEMO ONLY", BSP_OLED_6X8);
+        {
+            app_voice_state_t voice = app_voice_get_state();
+            const char *message = "VOICE INIT";
+            if (voice == APP_VOICE_PLAYING)
+                message = "VOICE BUSY HIGH";
+            else if (voice == APP_VOICE_WAIT_BUSY)
+                message = "VOICE WAIT BUSY";
+            else if (voice == APP_VOICE_ERROR)
+                message = "VOICE TIMER ERROR";
+            BSP_OLED_ShowString(10U, 52U, message, BSP_OLED_6X8);
+        }
         BSP_OLED_Reverse();
         return;
     }
