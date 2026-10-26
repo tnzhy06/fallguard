@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#define DEBUG_OUTPUT_ENABLE       1
+#define DEBUG_OUTPUT_ENABLE       0
 
 #define DEBUG_LOG_BOOT            0
 #define DEBUG_LOG_STATUS          0
@@ -11,11 +11,11 @@
 #define DEBUG_LOG_ERRORS          0
 #define DEBUG_LOG_FALL            0
 #define DEBUG_LOG_JQ              0
-#define DEBUG_LOG_ESP             1
-#define DEBUG_LOG_ESP_RX          1
-#define DEBUG_LOG_MQTT            1
-#define DEBUG_LOG_REPORT          1
-#define DEBUG_LOG_TIME            1
+#define DEBUG_LOG_ESP             0
+#define DEBUG_LOG_ESP_RX          0
+#define DEBUG_LOG_MQTT            0
+#define DEBUG_LOG_REPORT          0
+#define DEBUG_LOG_TIME            0
 #define DEBUG_LOG_TIME_PERIODIC   0
 #define DEBUG_TIME_PERIOD_MS      1000U
 
