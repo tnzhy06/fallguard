@@ -23,7 +23,13 @@ cube-cmake --preset Debug
 cube-cmake --build --preset Debug
 ```
 
-首次配置自动从 `BSP/esp_config.example.h`、`BSP/mqtt_config.example.h` 生成本地配置。填写 `BSP/esp_config_local.h` 的 Wi-Fi 信息及 `BSP/mqtt_config_local.h` 的 MQTT 地址与账户后重新编译。这两个本地文件已被 Git 忽略。
+配置 Wi-Fi 和 MQTT：
+
+1. 将 `BSP/esp_config.example.h` 复制为 `BSP/esp_config.h`，填写 `ESP_WIFI_SSID` 和 `ESP_WIFI_PASSWORD`。
+2. 将 `BSP/mqtt_config.example.h` 复制为 `BSP/mqtt_config.h`，填写 `MQTT_HOST`、`MQTT_PORT`、`MQTT_USERNAME` 和 `MQTT_PASSWORD`。
+3. 配置完成后重新编译并烧录。
+
+首次 CMake 配置也会在上述配置头文件不存在时自动从 example 模板创建；已填写的配置不会被覆盖。
 
 ## 使用说明
 
@@ -31,4 +37,4 @@ cube-cmake --build --preset Debug
 
 默认设备编号 `belt01`，MQTT 主题为 `fallguard/belt01/loc`、`fallguard/belt01/alarm`、`fallguard/belt01/cmd`。默认每 5 秒上报，命令允许设置 1～3600 秒；MQTT 不上报卫星数。调试输出在 `BSP/debug_config.h` 中按分类开关，USART1 为 115200 8N1。
 
-引脚、协议和开发约束见 [AGENTS.md](AGENTS.md)。`docs/` 参考资料仅本地保留，不随仓库发布；第三方代码及许可证保留在 `ThirdParty/`。本项目用于课程演示。
+第三方代码及许可证见 `ThirdParty/`。本项目用于课程演示。

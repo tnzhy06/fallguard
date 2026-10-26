@@ -1,6 +1,6 @@
 #include "bsp_esp.h"
-#include "esp_config_local.h"
-#include "mqtt_config_local.h"
+#include "esp_config.h"
+#include "mqtt_config.h"
 #include "debug_config.h"
 #include "main.h"
 #include "usart.h"
@@ -114,7 +114,7 @@ static void complete_command(void)
     case BSP_ESP_ECHO:
         data.state = ESP_WIFI_SSID[0] ? BSP_ESP_MODE : BSP_ESP_NO_CONFIG;
         if (data.state == BSP_ESP_NO_CONFIG)
-            DEBUG_PRINT(DEBUG_LOG_ESP, "[ESP] set WiFi in BSP/esp_config_local.h, then rebuild\r\n");
+            DEBUG_PRINT(DEBUG_LOG_ESP, "[ESP] set WiFi in BSP/esp_config.h, then rebuild\r\n");
         break;
     case BSP_ESP_MODE: data.state = BSP_ESP_JOIN; break;
     case BSP_ESP_JOIN:

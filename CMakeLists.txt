@@ -43,12 +43,12 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Keep credentials local while allowing a clean checkout to build.
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h")
-    configure_file(BSP/esp_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h" COPYONLY)
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config.h")
+    configure_file(BSP/esp_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config.h" COPYONLY)
 endif()
 
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config_local.h")
-    configure_file(BSP/mqtt_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config_local.h" COPYONLY)
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config.h")
+    configure_file(BSP/mqtt_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config.h" COPYONLY)
 endif()
 
 # Add sources to executable

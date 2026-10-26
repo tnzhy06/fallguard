@@ -1,3 +1,7 @@
+# Agent instructions
+/[Aa][Gg][Ee][Nn][Tt].md
+/[Aa][Gg][Ee][Nn][Tt][Ss].md
+
 # Local reference documents
 /docs/
 
@@ -44,7 +48,7 @@ Thumbs.db
 /docs/**/main
 
 # Local credentials
-/BSP/esp_config_local.h
+/BSP/esp_config.h
 .env
 .env.*
 !.env.example
@@ -53,4 +57,4 @@ Thumbs.db
 *.M51
 *.m51
 
-/BSP/mqtt_config_local.h
+/BSP/mqtt_config.h
