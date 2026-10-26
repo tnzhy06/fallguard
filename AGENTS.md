@@ -1,6 +1,6 @@
 # 开发须知（给 AI Agent 阅读）
 
-> 配套文档在 `docs/` 目录
+> 构建与使用见 `README.md`。配套文档在本地 `docs/` 目录，该目录不再上传 GitHub；引用的模块手册需在本地查阅。
 
 ---
 
@@ -94,13 +94,17 @@ fallguard/
 
 **协议依据**：ESP-01S 已刷入 **1471 号固件**；这个编号不等于已确认的 AT/SDK 版本。AT MQTT/SNTP 语法以 `docs/ESP-AT User Guide.pdf` 为准，保留 MQTT 的 `LinkID=0`，不切换到所谓“去掉 LinkID 的 NonOS MQTT”方案。JQ8900 一线协议以 `docs/JQ8900语音模块16p.pdf` 为准；图与示例不一致处见开发文档 5.3，需实测后定稿。
 
-C07 当前实现：PB0 接 VPP、PB1 接 BUSY，TIM3 1 MHz 中断推进一线波形，1 ms 高/4 ms 引导低/500 与 1500 µs 数据位，字节间隔至少 12 ms。用户确认 FLASH 根目录 00001.mp3，自动与手动报警共用，K2 消警发 0x13；BUSY 高转低后按报警状态重播。未用一线循环模式数值。2026-10-26 用户确认 C07 验收通过；未提供示波器测量值，不补写实测结论，详见 `docs/C07验收.md`。
+C07 当前实现：PB0 接 VPP、PB1 接 BUSY，TIM3 1 MHz 中断推进一线波形，1 ms 高/4 ms 引导低/500 与 1500 µs 数据位，字节间隔至少 12 ms。用户确认 FLASH 根目录 00001.mp3，自动与手动报警共用，K2 消警发 0x13；BUSY 高转低后按报警状态重播。未用一线循环模式数值。2026-10-26 用户确认 C07 验收通过；未提供示波器测量值，不补写实测结论。
 
-C08 第一部分：USART3 单字节中断+环形缓冲、AT 中断发送、Wi-Fi/SNTP 非阻塞状态机；本地凭据在被 Git 忽略的 `BSP/esp_config_local.h`，空配置仍探测 AT 并关闭回显；按用户要求取消自动 `AT+GMR`，已有版本实测记录保留。按手册 `CIPSNTPCFG=1,8` 获取东八区日历，通过 `bsp_rtc` 写入，GPS UTC 不写 RTC。F1 RTC 使用 BKP DR1～DR4 保存午夜 UTC 基准与校验，复位后恢复累计秒；后续不能另行调用 HAL_RTC_GetTime/SetDate 改动计数器。用户已提供 GMR（AT 2.3.0.0-dev / Bin 2.2.0 ESP8266_1MB）并确认 Wi-Fi GOT IP；单服务器曾返回 1970，改用 aliyun/sjtu/ntp.org.cn 三服务器后用户确认校时可用；VBAT 尚无单独实测记录，见 `docs/C08校时与RTC验收.md`。该段为 C08 历史记录，后续 MQTT 见 C09。
+C08 第一部分：USART3 单字节中断+环形缓冲、AT 中断发送、Wi-Fi/SNTP 非阻塞状态机；本地凭据在被 Git 忽略的 `BSP/esp_config_local.h`，空配置仍探测 AT 并关闭回显；按用户要求取消自动 `AT+GMR`，已有版本实测记录保留。按手册 `CIPSNTPCFG=1,8` 获取东八区日历，通过 `bsp_rtc` 写入，GPS UTC 不写 RTC。F1 RTC 使用 BKP DR1～DR4 保存午夜 UTC 基准与校验，复位后恢复累计秒；后续不能另行调用 HAL_RTC_GetTime/SetDate 改动计数器。用户已提供 GMR（AT 2.3.0.0-dev / Bin 2.2.0 ESP8266_1MB）并确认 Wi-Fi GOT IP；单服务器曾返回 1970，改用 aliyun/sjtu/ntp.org.cn 三服务器后用户确认校时可用；VBAT 尚无单独实测记录。该段为 C08 历史记录，后续 MQTT 见 C09。
 
-MQTT 方案更新（2026-10-26）：用户要求主题前缀改为 `fallguard/`，设备编号仍为 `belt01`。后续 C09 使用 `fallguard/belt01/loc`、`fallguard/belt01/alarm`、`fallguard/belt01/cmd`；MQTTX 项目订阅为 `fallguard/#`，单设备订阅为 `fallguard/belt01/#`。用户另说明 MQTT 不上报卫星数，网站不得要求 `sat` 字段或展示卫星数；GPS/OLED 本地展示保持不变。详见 `docs/MQTT课程演示方案.md`；当前 C09 已接入 MQTT，用户于 2026-10-26 确认验收通过，见 `docs/C09验收.md`。
+MQTT 方案更新（2026-10-26）：用户要求主题前缀改为 `fallguard/`，设备编号仍为 `belt01`。后续 C09 使用 `fallguard/belt01/loc`、`fallguard/belt01/alarm`、`fallguard/belt01/cmd`；MQTTX 项目订阅为 `fallguard/#`，单设备订阅为 `fallguard/belt01/#`。用户另说明 MQTT 不上报卫星数，网站不得要求 `sat` 字段或展示卫星数；GPS/OLED 本地展示保持不变。详见 `docs/MQTT课程演示方案.md`；当前 C09 已接入 MQTT，用户于 2026-10-26 确认验收通过。
 
-C09 当前实现：USART3 非阻塞 AT MQTT 状态机，LinkID=0，QoS 0/Retain 0；默认 5 秒、intv 允许 1～3600 秒。`BSP/mqtt_config_local.h` 被 Git 忽略，使用用户新部署的 mqtt_device 账户，未复制 SSH/管理员资料。严格按长度接收下行，原始 JSON 固定缓冲拼装，MQTT 无 sat。实物 MQTTCONNECTED 的端口为带引号的 "1883"，接收同时接受该格式与手册数字端口，仍核对主机/端口和最终 OK；修复后电脑直接订阅云端已收到 3 条实物 loc、间隔 5 秒且 Retain=false；用户随后于 2026-10-26 确认 C09 验收通过，未补写未提供的独立测量值。远程 clear 幂等，报警/消警后更新快照，断网不补报、重连上报当前状态。保留无 GMR 与 RTC 周期输出关闭；编译、回放和电脑云 Broker 复测通过，ESP 实物周期上报已确认、用户阶段验收通过，记录见 `docs/C09验收.md`；未进入 C10。
+C09 当前实现：USART3 非阻塞 AT MQTT 状态机，LinkID=0，QoS 0/Retain 0；默认 5 秒、intv 允许 1～3600 秒。`BSP/mqtt_config_local.h` 被 Git 忽略，使用用户新部署的 mqtt_device 账户，未复制 SSH/管理员资料。严格按长度接收下行，原始 JSON 固定缓冲拼装，MQTT 无 sat。实物 MQTTCONNECTED 的端口为带引号的 "1883"，接收同时接受该格式与手册数字端口，仍核对主机/端口和最终 OK；修复后电脑直接订阅云端已收到 3 条实物 loc、间隔 5 秒且 Retain=false；用户随后于 2026-10-26 确认 C09 验收通过，未补写未提供的独立测量值。远程 clear 幂等，报警/消警后更新快照，断网不补报、重连上报当前状态。保留无 GMR 与 RTC 周期输出关闭；编译、回放和电脑云 Broker 复测通过，ESP 实物周期上报已确认、用户阶段验收通过；未进入 C10。
+
+OLED 改版（2026-10-26）：用户确认 C09 通过后已推送 d266307，再授权简洁界面重设计。当前 App/app_ui.c 为主屏/位置/GPS/姿态/网络五页，默认主屏；中文报警覆盖，消警回主屏，检测/按键/协议语义不变。新增 App/app_ui_font.h 的 21 个宋体 16×16 字模；原第三方字库不变。编译与帧缓冲预览通过，新版 OLED 实物显示仍待用户确认，不据此认定 C10 全部完成。
+
+工程清理（2026-10-27）：按用户要求删除验收文档、过时说明、tests/、Tools/ 和旧临时输出；保留源码、字模、第三方许可证、VS Code 配置及 build/Debug 编译信息。docs/ 中其余资料仅本地保留并被 Git 忽略。历史测试记录仅说明当时执行结果，不代表仓库仍附带回放脚本。
 
 GPS C05 已确认：ATGM336H 与 USART2 均为 115200 8N1；GGA/RMC 有效位置与 GSV 信号采用 5 秒过期规则。信号按最大 C/N₀ 分为无（无效/过期/0）、弱（1～29）、中（30～39）、强（40～99 dBHz），不参与 fix 判定；OLED 仅显示 0～3 个信号格，不显示四档中文文字。展示 UTC、经纬度、海拔、卫星数和 HDOP，不展示速度；UTC 不写 RTC。
 
