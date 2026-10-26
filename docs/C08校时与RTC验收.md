@@ -1,5 +1,6 @@
 # C08 第一部分：Wi-Fi 校时与 RTC
 
+> 本文保留 C08 阶段记录。当前已接入 C09，见 [C09验收](C09验收.md)；SNTP 拒绝/无响应时允许后续 MQTT 的规则以 C09 文档为准。
 2026-10-26，用户确认 C07 验收通过，已推送 [`a1820b6`](https://github.com/tnzhy06/fallguard/commit/a1820b674f341940b890a6892bf56100813ea000)。C08 的 Wi-Fi、SNTP 和 RTC 代码已编译及软件回放通过。用户在三服务器变更后确认“现在可以了”，本轮按已通过校时验证提交并进入 C09；VBAT 独立持时尚无单独测试记录。
 
 ## 先填写 Wi-Fi
@@ -11,7 +12,7 @@
 #define ESP_WIFI_PASSWORD "你的WiFi密码"
 ```
 
-此文件在 CMake 配置时从 [esp_config.example.h](../BSP/esp_config.example.h) 自动创建，已有文件不会覆盖，并已加入 `.gitignore`。填写后重新编译 Debug、烧录 [fallguard.elf](../build/Debug/fallguard.elf)。空名称时仍会探测 AT、关闭回显、读取 GMR，之后停在 SET WIFI，不主动连接。
+此文件在 CMake 配置时从 [esp_config.example.h](../BSP/esp_config.example.h) 自动创建，已有文件不会覆盖，并已加入 `.gitignore`。填写后重新编译 Debug、烧录 [fallguard.elf](../build/Debug/fallguard.elf)。空名称时仍会探测 AT、关闭回显，之后停在 SET WIFI，不主动连接。
 
 SSID 最多 32 字节，密码最多 64 字节，不接受控制字符；代码会对 AT 参数中的逗号、双引号、反斜杠转义。写入 C 字符串本身时，双引号和反斜杠仍需按 C 语法转义。调试输出隐藏连接命令中的凭据。
 
@@ -24,7 +25,6 @@ SSID 最多 32 字节，密码最多 64 字节，不接受控制字符；代码�
 ```text
 AT
 ATE0
-AT+GMR
 AT+CWMODE=1
 AT+CWJAP="配置的名称","配置的密码"
 AT+CIPSNTPCFG=1,8,"ntp.aliyun.com","ntp.sjtu.edu.cn","cn.ntp.org.cn"
@@ -33,7 +33,7 @@ AT+CIPSNTPTIME?
 
 每条实际命令以 CR-LF 结束，等待上一条最终响应后再发下一条。USART3 接收使用单字节中断和 1024 字节环形缓冲；主循环分批解析完整行，发送用中断方式，不在中断里打印、解析或等待网络，不使用 DMA。
 
-`AT+GMR` 的版本行打印为 `[ESP GMR] ...`，请在实测时保存原始版本内容。用户已提供真实响应，版本记录见下方。若命令返回 ERROR，显示 AT REJECT 并保留 RTC，不擅自改为其他 AT 方言；需要根据实际日志核对手册差异。
+2026-10-26 按用户要求取消启动与重连流程中的自动 `AT+GMR`，关闭回显后直接进入 Wi-Fi 配置；OLED 不再出现 GMR 步骤。已有固件版本记录保留在下方，需要排查固件时可另行手动查询。若命令返回 ERROR，显示 AT REJECT 并保留 RTC，不擅自改为其他 AT 方言；需要根据实际日志核对手册差异。
 
 ## 校时与 RTC 行为
 
@@ -62,7 +62,7 @@ STM32F1 的 HAL 日历日期保存在 RAM，`HAL_RTC_GetTime()` 还会在跨日�
 | SNTP 查询间隔/单轮获取窗口 | 2 秒/30 秒 |
 | 有响应但一直无有效时间 | 结束本轮，60 秒后重试 |
 | 有效校时后的周期复校 | 1 小时 |
-| RTC 快照刷新/调试输出 | 200 ms/默认 1 秒 |
+| RTC 快照刷新/周期调试输出 | 200 ms/默认关闭；开启后为 1 秒 |
 
 这些是本项目的初始调度参数，尚未据 1471 实物响应标定。等待期间本地功能继续运行。启动等待阶段的接收噪声会丢弃并记录；正常事务中的 UART 错误、环形缓冲溢出或超长行会放弃当前事务并重建会话，避免用破损响应误校时。持续无响应会走连接恢复；明确不支持的指令停止自动尝试，等待检查。
 
@@ -82,16 +82,16 @@ STM32F1 的 HAL 日历日期保存在 RAM，`HAL_RTC_GetTime()` 还会在跨日�
 
 UP 不表示 MQTT 已连接。LED 仍沿用原来的“网络未运行”常亮/报警快闪模式，本轮不接入 MQTT，不改变 topic/JSON 格式。
 
-[debug_config.h](../BSP/debug_config.h) 新增 `DEBUG_LOG_ESP=1`（命令步骤和版本）、`DEBUG_LOG_ESP_RX=1`（原始响应行）、`DEBUG_LOG_TIME=1`（校时及 RTC 周期输出），`DEBUG_TIME_PERIOD_MS=1000`。当前其他模块日志及 `DEBUG_LOG_ERRORS` 均为 0；ESP/RTC 自身错误分别随 ESP/TIME 分类保留，也可由通用错误开关开启。当前已仅保留本轮校时相关输出；总开关关闭不停止校时、RTC 或本地检测。
+[debug_config.h](../BSP/debug_config.h) 新增 `DEBUG_LOG_ESP=1`（命令步骤）、`DEBUG_LOG_ESP_RX=1`（原始响应行）、`DEBUG_LOG_TIME=1`（RTC 启动、校时及写失败事件），`DEBUG_LOG_TIME_PERIODIC=0`（关闭重复时间和未校准状态行），`DEBUG_TIME_PERIOD_MS=1000`（开启周期日志后的间隔）。当前其他模块日志及 `DEBUG_LOG_ERRORS` 均为 0；ESP/RTC 自身错误分别随 ESP/TIME 分类保留，也可由通用错误开关开启。当前已仅保留本轮校时相关输出；总开关关闭不停止校时、RTC 或本地检测。
 
 ## 上板验收
 
-1. 填好本地 Wi-Fi，编译并烧录。观察 GMR 版本和实际响应；首次无有效备份时应先 TIME UNSET，不能直接出现假日期。
+1. 填好本地 Wi-Fi，编译并烧录。观察 AT、Wi-Fi 和 SNTP 实际响应；首次无有效备份时应先 TIME UNSET，不能直接出现假日期。
 2. 联网成功后，串口出现 `[RTC] SNTP applied, local=UTC+8`；OLED 时间应与当前北京时间接近，Unix 秒对应 UTC。精度按秒观察，本轮不做晶振频率校准。
 3. 关闭 Wi-Fi，确认日期时间继续每秒变化，GPS、MPU、K1、K2 报警和 JQ8900 仍正常；恢复 Wi-Fi 后观察重连和后续校时。
 4. 在已有有效校时后按 MCU 复位，确认出现 `restored=1` 且日期时间继续；再断开主电源测试 VBAT 保持，按实际板上后备供电情况判定。
 5. 检查 `dt/max` 和 GPS 错误/丢字节计数，确认发 AT 与播放语音期间本地任务仍可接受。日志本身的串口发送会占用少量主循环时间，可通过分类开关对比。
-6. 若卡在 AT REJECT 或超时，保留 GMR 和 ESP_RX 日志；不能据本地模拟器通过就认定真实 1471 固件支持所有指令。
+6. 若卡在 AT REJECT 或超时，保留已有版本记录和本次 ESP_RX 日志；不能据本地模拟器通过就认定真实 1471 固件支持所有指令。
 
 ## 文件与验证状态
 
@@ -119,3 +119,10 @@ Bin version:2.2.0(ESP8266_1MB)
 重新烧录后确认 TX 中为三服务器配置，等到真实日期与 `[RTC] SNTP applied`。如果仍持续返回 1970，可改用能上网的手机 2.4 GHz 热点交叉测试；若热点成功，优先排查原网络的 DNS 和 UDP 123/NTP 放行情况。仅连接 AP 并获得 IP 不等于已能访问互联网或 NTP 服务。阿里云文档也提示同步失败时检查 UDP 123 是否被阻止。
 
 阶段推进：用户确认三服务器配置后校时可用，要求提交 GitHub 并根据本机阿里云部署资料进入 MQTT 接入。未据此补写未提供的 VBAT、晶振精度或 MQTT 实测结论。
+
+
+## 取消自动版本查询（2026-10-26）
+
+按用户要求删除启动/重连中的 `AT+GMR` 状态、发送与专用版本日志，`ATE0` 成功后直接进入 Wi-Fi 配置；空 Wi-Fi 时仅发送 AT、ATE0。同步移除 OLED 的 GMR 步骤。上述历史版本记录保持原样。
+
+本次 Debug 编译通过，RAM 7728 B、FLASH 68336 B；正常 Wi-Fi 和空 Wi-Fi 的实际 RTC/ESP/AppTime 源码回放均通过，覆盖指令顺序、校时、超时及接收失步恢复。尚未重新烧录验证此改动。

@@ -12,7 +12,7 @@ cc -std=c11 -Wall -Wextra -Werror -Itests/mpu6050 -IBSP -IThirdParty/leech001_mp
 串口快照调度回放：
 
 ```sh
-cc -std=c11 -Wall -Wextra -Werror -Itests/mpu6050 -IBSP -IApp tests/mpu6050/test_output.c -o build/test_mpu_output
+cc -std=c11 -Wall -Wextra -Werror -Itests/mpu6050 -IBSP -IApp tests/mpu6050/test_output.c App/app_fall.c -o build/test_mpu_output
 ./build/test_mpu_output
 ```
 

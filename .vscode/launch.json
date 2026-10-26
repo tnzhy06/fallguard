@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Fallguard: Debug (ST-LINK)",
+      "type": "stlinkgdbtarget",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "deviceName": "STM32F103RCT6",
+      "deviceCore": "Cortex-M3",
+      "preLaunchTask": "Fallguard: Build Debug",
+      "preBuild": "",
+      "imagesAndSymbols": [
+        {
+          "imageFileName": "${workspaceFolder}/build/Debug/fallguard.elf",
+          "symbolFileName": "${workspaceFolder}/build/Debug/fallguard.elf"
+        }
+      ],
+      "serverInterface": "SWD",
+      "serverInterfaceFrequency": "1000",
+      "serverReset": "Software system reset",
+      "serverVerify": true,
+      "runEntry": "main"
+    }
+  ]
+}

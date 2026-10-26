@@ -128,7 +128,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C08 time ===\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C09 MQTT ===\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
@@ -148,7 +148,7 @@ int main(void)
   esp_rx_retry_tick = HAL_GetTick();
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C08] TIM2 started; RTC validity shown on time page\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C09] TIM2 started; MQTT/RTC pages show network and time\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */

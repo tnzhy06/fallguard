@@ -49,3 +49,5 @@ Thumbs.db
 # Keil 8051 linker reports
 *.M51
 *.m51
+
+/BSP/mqtt_config_local.h

@@ -13,7 +13,10 @@
 #define DEBUG_LOG_JQ              0
 #define DEBUG_LOG_ESP             1
 #define DEBUG_LOG_ESP_RX          1
+#define DEBUG_LOG_MQTT            1
+#define DEBUG_LOG_REPORT          1
 #define DEBUG_LOG_TIME            1
+#define DEBUG_LOG_TIME_PERIODIC   0
 #define DEBUG_TIME_PERIOD_MS      1000U
 
 #define DEBUG_LOG_MPU_ACCEL       0

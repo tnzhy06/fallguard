@@ -55,8 +55,7 @@ static void reply(const char *text) {huart3.gState=HAL_UART_STATE_READY;feed(tex
 static void command(const char *wanted) {assert(strcmp(transmitted,wanted)==0);}
 static void connect_to_sntp(void) {
  step(2000);command("AT\r\n");reply("AT\r\n\r\nOK\r\n");command("ATE0\r\n");
- reply("OK\r\n");command("AT+GMR\r\n");
- reply("AT version:test-1471\r\nSDK version:test\r\nOK\r\n");
+ reply("OK\r\n");
 #ifndef TEST_NO_WIFI
  command("AT+CWMODE=1\r\n");reply("OK\r\n");
  command("AT+CWJAP=\"demo\\,\\\"ssid\\\\\",\"synthetic-test-password\"\r\n");
@@ -90,8 +89,8 @@ int main(void) {
  puts("PASS RTC UTC+8 conversion, leap/month/year rollover, 40-day reset restore, invalid dates, range, backup corruption and HAL failure");
  reset_all();connect_to_sntp();
 #ifdef TEST_NO_WIFI
- assert(BSP_ESP_GetData()->state==BSP_ESP_NO_CONFIG && tx_calls==3);
- puts("PASS empty credentials still probe AT/GMR, then wait without attempting WiFi");
+ assert(BSP_ESP_GetData()->state==BSP_ESP_NO_CONFIG && tx_calls==2);
+ puts("PASS empty credentials only probe AT/ATE0, then wait without attempting WiFi");
 #else
  reply("+CIPSNTPTIME:Thu Jan  1 00:00:00 1970\r\nOK\r\n");
  assert(!BSP_RTC_GetData()->valid);step(2000);
@@ -107,14 +106,14 @@ int main(void) {
  puts("PASS actual AT/WiFi/SNTP sequence, escaping, 1970/invalid-date rejection, final-OK gating and independent RTC holdover");
  reset_all();connect_to_sntp();
  reply("+CIPSNTPTIME:Mon Oct 26 12:34:56 2026\r\nERROR\r\n");
- assert(!BSP_RTC_GetData()->valid && BSP_ESP_GetData()->state==BSP_ESP_UNSUPPORTED);
+ assert(!BSP_RTC_GetData()->valid && BSP_ESP_GetData()->state==BSP_ESP_READY);
  reset_all();connect_to_sntp();
  for(unsigned int i=0;i<20 && BSP_ESP_GetData()->state==BSP_ESP_SNTP_QUERY;++i) {
   reply("+CIPSNTPTIME:Thu Jan  1 00:00:00 1970\r\nOK\r\n");step(2000);
  }
  assert(BSP_ESP_GetData()->state==BSP_ESP_READY && !BSP_RTC_GetData()->valid);
  {uint32_t n=tx_calls;step(59000);assert(tx_calls==n);step(1000);assert(tx_calls==n+1);}
- puts("PASS unsupported response and bounded SNTP acquisition/retry without false calibration");
+ puts("PASS SNTP rejection permits further networking and bounded acquisition/retry without false calibration");
 #endif
  reset_all();step(2000);step(2000);assert(BSP_ESP_GetData()->timeouts==1);
  step(30000);assert(en==GPIO_PIN_RESET);step(99);assert(en==GPIO_PIN_RESET);

@@ -37,7 +37,8 @@ void app_time_poll(void)
         rtc_tick = now;
         BSP_RTC_Poll();
     }
-    if ((uint32_t)(now - log_tick) < DEBUG_TIME_PERIOD_MS)
+    if (!DEBUG_LOG_TIME || !DEBUG_LOG_TIME_PERIODIC ||
+        ((uint32_t)(now - log_tick) < DEBUG_TIME_PERIOD_MS))
         return;
     log_tick = now;
     rtc = BSP_RTC_GetData();

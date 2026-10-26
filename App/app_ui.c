@@ -7,6 +7,7 @@
 #include "bsp_mpu6050.h"
 #include "bsp_rtc.h"
 #include "bsp_esp.h"
+#include "app_report.h"
 #include "stm32f1xx_hal.h"
 #include <stdio.h>
 
@@ -15,10 +16,13 @@ static uint8_t alarm_active;
 static uint8_t dirty;
 static uint32_t last_refresh;
 static bsp_oled_state_t last_oled_state;
+static const char *const esp_states[] = {"BOOT", "AT", "ATE0", "STA", "JOIN",
+    "SNTP CFG", "SNTP WAIT", "UP", "RETRY", "RESET", "SET CONFIG", "AT REJECT",
+    "MQ CLEAN", "MQ USER", "MQ CONFIG", "MQ CONNECT", "MQ SUB", "MQ ONLINE", "MQ PUB"};
 
 void app_ui_init(void)
 {
-    page = 6U;
+    page = 7U;
     alarm_active = 0U;
     dirty = 1U;
     last_refresh = HAL_GetTick();
@@ -28,7 +32,7 @@ void app_ui_init(void)
 
 void app_ui_next_page(void)
 {
-    page = (uint8_t)((page + 1U) % 7U);
+    page = (uint8_t)((page + 1U) % 8U);
     dirty = 1U;
 }
 
@@ -139,10 +143,30 @@ static void draw_page(uint32_t now)
         return;
     }
 
+    if (page == 7U)
+    {
+        const bsp_esp_data_t *esp = BSP_ESP_GetData();
+        const app_report_data_t *report = app_report_get_data();
+        BSP_OLED_ShowString(0U, 0U, "MQTT C09", BSP_OLED_8X16);
+        snprintf(line, sizeof(line), "MQ:%s %s", BSP_ESP_IsOnline() ? "UP" : "DOWN", esp_states[esp->state]);
+        BSP_OLED_ShowString(0U, 16U, line, BSP_OLED_6X8);
+        snprintf(line, sizeof(line), "WiFi:%u INTV:%lus", (unsigned int)esp->wifi_connected,
+                 (unsigned long)report->interval_seconds);
+        BSP_OLED_ShowString(0U, 24U, line, BSP_OLED_6X8);
+        snprintf(line, sizeof(line), "PUB:%lu FAIL:%lu", (unsigned long)esp->published,
+                 (unsigned long)esp->publish_failures);
+        BSP_OLED_ShowString(0U, 32U, line, BSP_OLED_6X8);
+        snprintf(line, sizeof(line), "CMD DROP:%lu BAD:%lu", (unsigned long)esp->command_drops,
+                 (unsigned long)report->bad_commands);
+        BSP_OLED_ShowString(0U, 40U, line, BSP_OLED_6X8);
+        snprintf(line, sizeof(line), "RX DROP:%lu", (unsigned long)esp->dropped_bytes);
+        BSP_OLED_ShowString(0U, 48U, line, BSP_OLED_6X8);
+        BSP_OLED_ShowString(0U, 56U, "K1:PAGE K2:ALARM", BSP_OLED_6X8);
+        return;
+    }
+
     if (page == 6U)
     {
-        static const char *const states[] = {"BOOT", "AT", "ATE0", "GMR", "STA", "JOIN",
-            "SNTP CFG", "SNTP WAIT", "UP", "RETRY", "RESET", "SET WIFI", "AT REJECT"};
         const bsp_rtc_data_t *rtc = BSP_RTC_GetData();
         const bsp_esp_data_t *esp = BSP_ESP_GetData();
         BSP_OLED_ShowString(0U, 0U, "RTC UTC+8", BSP_OLED_8X16);
@@ -163,7 +187,7 @@ static void draw_page(uint32_t now)
             snprintf(line, sizeof(line), rtc->error ? "RTC ERROR ts:0" : "TIME UNSET ts:0");
         }
         BSP_OLED_ShowString(0U, 46U, line, BSP_OLED_6X8);
-        snprintf(line, sizeof(line), "WiFi:%u %s", (unsigned int)esp->wifi_connected, states[esp->state]);
+        snprintf(line, sizeof(line), "WiFi:%u %s", (unsigned int)esp->wifi_connected, esp_states[esp->state]);
         BSP_OLED_ShowString(0U, 56U, line, BSP_OLED_6X8);
         return;
     }

@@ -47,6 +47,10 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h")
     configure_file(BSP/esp_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config_local.h" COPYONLY)
 endif()
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config_local.h")
+    configure_file(BSP/mqtt_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config_local.h" COPYONLY)
+endif()
+
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/bsp_jq8900.c
@@ -62,6 +66,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ThirdParty/lwgps/src/lwgps/lwgps.c
     ThirdParty/zeruns_oled/oled_data.c
     App/app_voice.c
+    App/app_json.c
+    App/app_report.c
     App/app_time.c
     App/app_fall.c
     App/app_main.c

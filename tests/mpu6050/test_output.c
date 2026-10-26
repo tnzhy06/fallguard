@@ -5,6 +5,8 @@
 #include "app_ui.h"
 #include "app_voice.h"
 #include "app_time.h"
+#include "app_report.h"
+#include "bsp_esp.h"
 #include "debug_config.h"
 #include "bsp_mpu6050.h"
 #include "bsp_gps.h"
@@ -15,7 +17,10 @@ static bsp_mpu6050_sample_t sensor;
 static bsp_mpu6050_state_t mock_state;
 static bsp_gps_data_t gps;
 static uint8_t pressed, ui_alarm, voice_alarm;
-static unsigned int voice_polls, time_polls;
+static unsigned int voice_polls, time_polls, report_polls;
+void app_report_init(void) {report_polls=0;}
+void app_report_poll(void) {++report_polls;}
+uint8_t BSP_ESP_IsOnline(void) {return 0;}
 void app_time_init(void) {time_polls=0;}
 void app_time_poll(void) {++time_polls;}
 void app_voice_init(void) {voice_polls=0;voice_alarm=0;}
@@ -80,7 +85,7 @@ int main(void) {
  app_init();mock_state=BSP_MPU6050_READY;
  for(i=0;i<240;++i){now+=10;app_run();}
  while(mpu_log_phase){now+=10;app_run();}
- assert(gps_polls>=240 && sensor.samples>=240 && voice_polls==gps_polls && time_polls==gps_polls);
+ assert(gps_polls>=240 && sensor.samples>=240 && voice_polls==gps_polls && time_polls==gps_polls && report_polls==gps_polls);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_ACCEL ? a_frames>=10 : a_frames==0);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_GYRO ? g_frames>=10 : g_frames==0);
  assert(DEBUG_OUTPUT_ENABLE && DEBUG_LOG_MPU_ANGLES ? rp_frames>=10 : rp_frames==0);
