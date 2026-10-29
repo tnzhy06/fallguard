@@ -1,7 +1,6 @@
 #include "app_ui.h"
 #include "app_ui_font.h"
 #include "app_fall.h"
-#include "app_voice.h"
 #include "app_report.h"
 #include "debug_config.h"
 #include "bsp_oled.h"
@@ -286,9 +285,6 @@ static void draw_network(void)
 
 static void draw_alarm(void)
 {
-    app_voice_state_t voice = app_voice_get_state();
-    const char *message = "VOICE INIT";
-
     draw_header("ALERT");
     BSP_OLED_DrawLine(24U, 17U, 8U, 43U);
     BSP_OLED_DrawLine(8U, 43U, 40U, 43U);
@@ -296,13 +292,6 @@ static void draw_alarm(void)
     BSP_OLED_DrawRectangle(23U, 26U, 3U, 9U, BSP_OLED_FILLED);
     BSP_OLED_DrawRectangle(23U, 38U, 3U, 3U, BSP_OLED_FILLED);
     draw_chinese(56U, 16U, app_fall_get_data()->source == APP_FALL_SOURCE_AUTO ? "跌倒报警" : "测试报警");
-    if (voice == APP_VOICE_PLAYING)
-        message = "VOICE ON";
-    else if (voice == APP_VOICE_WAIT_BUSY)
-        message = "VOICE WAIT";
-    else if (voice == APP_VOICE_ERROR)
-        message = "VOICE ERROR";
-    BSP_OLED_ShowString(56U, 36U, message, BSP_OLED_6X8);
     BSP_OLED_ShowString(30U, 48U, "K2", BSP_OLED_8X16);
     draw_chinese(58U, 48U, "消警");
 }

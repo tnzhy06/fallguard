@@ -53,7 +53,6 @@ endif()
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    BSP/bsp_jq8900.c
     BSP/bsp_rtc.c
     BSP/bsp_esp.c
     BSP/bsp_led.c
@@ -65,7 +64,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/bsp_gps.c
     ThirdParty/lwgps/src/lwgps/lwgps.c
     ThirdParty/zeruns_oled/oled_data.c
-    App/app_voice.c
     App/app_json.c
     App/app_report.c
     App/app_time.c

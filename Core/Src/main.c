@@ -29,7 +29,6 @@
 #include "app_main.h"
 #include "debug_config.h"
 #include "bsp_gps.h"
-#include "bsp_jq8900.h"
 #include "bsp_esp.h"
 #include <errno.h>
 #include <stdio.h>
@@ -124,7 +123,6 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -140,7 +138,6 @@ int main(void)
   }
 
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[MPU] PB6=SCL PB7=SDA @0x68; keep STILL (~3s), 100Hz 2g/250dps\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[JQ] PB0->VPP PB1<-BUSY; TIM3 one-wire LSB first\r\n");
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
@@ -225,12 +222,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim == &htim3)
-        BSP_JQ8900_TimerIRQ();
-}
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart == &huart2)

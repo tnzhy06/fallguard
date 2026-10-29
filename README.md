@@ -4,9 +4,10 @@
 
 - MPU6050：三轴加速度、角速度、Roll/Pitch；任一角度绝对值达到 60° 并持续 1 秒触发报警。
 - ATGM336H：GPS 定位、UTC、海拔及信号强度。
-- JQ8900：一线串口语音报警，使用根目录 `00001.mp3`。
 - ESP-01S：Wi-Fi、SNTP 校时及 MQTT 上报。
 - OLED：主屏、位置、GPS、姿态和网络五页；K1 切页，K2 测试报警/消警。
+
+当前报警通过 OLED、LED 和 MQTT 提示，音频输出待后续接入。
 
 ## 构建与调试
 
@@ -57,7 +58,6 @@ cube-cmake --build --preset Debug
 | `DEBUG_LOG_KEYS` | 按键操作 | 0 |
 | `DEBUG_LOG_ERRORS` | 通用错误提示 | 0 |
 | `DEBUG_LOG_FALL` | 报警、消警、扶正重新待命事件 | 0 |
-| `DEBUG_LOG_JQ` | 语音命令和 BUSY 状态变化 | 0 |
 | `DEBUG_LOG_ESP` | AT 发送步骤、联网提示及 ESP 错误；凭据隐藏 | 0 |
 | `DEBUG_LOG_ESP_RX` | ESP 返回的响应行；凭据命令回显隐藏 | 0 |
 | `DEBUG_LOG_MQTT` | MQTT 连接、订阅、发布和重连状态 | 0 |

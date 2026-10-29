@@ -10,7 +10,6 @@
 #define DEBUG_LOG_KEYS            0
 #define DEBUG_LOG_ERRORS          0
 #define DEBUG_LOG_FALL            0
-#define DEBUG_LOG_JQ              0
 #define DEBUG_LOG_ESP             0
 #define DEBUG_LOG_ESP_RX          0
 #define DEBUG_LOG_MQTT            0
