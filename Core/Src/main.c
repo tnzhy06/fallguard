@@ -130,14 +130,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n=== fallguard C09 MQTT ===\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] HCLK=%lu Hz LSE_READY=%lu\r\n",
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n[BOOT] fallguard\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[BOOT] HCLK=%lu Hz LSE_READY=%lu\r\n",
          (unsigned long)HAL_RCC_GetHCLKFreq(),
          (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
 
   if (HAL_TIM_Base_Start(&htim2) != HAL_OK)
   {
-    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[C05] TIM2 start failed\r\n");
+    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[TIM] TIM2 start failed\r\n");
     Error_Handler();
   }
 
@@ -147,11 +147,11 @@ int main(void)
   gps_rx_retry_tick = HAL_GetTick();
   esp_receive_start();
   esp_rx_retry_tick = HAL_GetTick();
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] GPS: TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[GPS] TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C09] TIM2 started; MQTT/RTC pages show network and time\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] OLED: PB4=SCL PB5=SDA @0x3C; init pending\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[C05] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[TIM] TIM2 started; MQTT/RTC pages show network and time\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[OLED] PB4=SCL PB5=SDA @0x3C; init pending\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT, "[KEY] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */

@@ -1,0 +1,14 @@
+#ifndef APP_ALARM_PCM_H
+#define APP_ALARM_PCM_H
+
+#include <stdint.h>
+
+#define APP_ALARM_PCM_RATE_HZ 8000U
+#define APP_ALARM_PCM_SOURCE_FRAMES 17280U
+#define APP_ALARM_PCM_OFFSET_FRAMES 592U
+#define APP_ALARM_PCM_FRAMES 14963U
+#define APP_ALARM_PCM_WORDS 29926U
+
+extern const int16_t app_alarm_pcm[APP_ALARM_PCM_WORDS];
+
+#endif

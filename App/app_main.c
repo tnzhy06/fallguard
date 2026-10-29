@@ -1,4 +1,5 @@
 #include "app_main.h"
+#include "app_audio.h"
 #include "debug_config.h"
 #include "app_ui.h"
 #include "app_fall.h"
@@ -50,38 +51,38 @@ static void diagnostic_poll(void)
     switch (gps_log_phase)
     {
     case 0:
-        DEBUG_PRINT(DEBUG_LOG_GPS_FIX, "[C05] GPS fix=%u has=%u sat=%u age_ms=%lu\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_FIX, "[GPS] fix=%u has=%u sat=%u age_ms=%lu\r\n",
                (unsigned int)g->fix, (unsigned int)g->has_position,
                (unsigned int)g->satellites, (unsigned long)g->age_ms);
         break;
     case 1:
-        DEBUG_PRINT(DEBUG_LOG_GPS_POSITION, "[C05] GPS lat_udeg=%ld lon_udeg=%ld\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_POSITION, "[GPS] lat_udeg=%ld lon_udeg=%ld\r\n",
                (long)g->latitude_udeg, (long)g->longitude_udeg);
         break;
     case 2:
-        DEBUG_PRINT(DEBUG_LOG_GPS_UTC, "[C05] GPS UTC=20%02u-%02u-%02u %02u:%02u:%02u valid=%u\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_UTC, "[GPS] UTC=20%02u-%02u-%02u %02u:%02u:%02u valid=%u\r\n",
                (unsigned int)g->utc_year, (unsigned int)g->utc_month,
                (unsigned int)g->utc_day, (unsigned int)g->utc_hour,
                (unsigned int)g->utc_minute, (unsigned int)g->utc_second,
                (unsigned int)g->utc_valid);
         break;
     case 3:
-        DEBUG_PRINT(DEBUG_LOG_GPS_ALTITUDE, "[C05] GPS alt_cm=%ld hdop_x100=%lu hv=%u\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_ALTITUDE, "[GPS] alt_cm=%ld hdop_x100=%lu hv=%u\r\n",
                (long)g->altitude_cm,
                (unsigned long)g->hdop_x100, (unsigned int)g->hdop_valid);
         break;
     case 4:
-        DEBUG_PRINT(DEBUG_LOG_GPS_STATS, "[C05] GPS rx=%lu gga=%lu rmc=%lu\r\n", (unsigned long)g->rx_bytes,
+        DEBUG_PRINT(DEBUG_LOG_GPS_STATS, "[GPS] rx=%lu gga=%lu rmc=%lu\r\n", (unsigned long)g->rx_bytes,
                (unsigned long)g->gga_count, (unsigned long)g->rmc_count);
         break;
     case 5:
-        DEBUG_PRINT(DEBUG_LOG_GPS_STATS, "[C05] GPS crc=%lu bad=%lu drop=%lu uart=%lu err=%08lX\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_STATS, "[GPS] crc=%lu bad=%lu drop=%lu uart=%lu err=%08lX\r\n",
                (unsigned long)g->checksum_errors, (unsigned long)g->bad_frames,
                (unsigned long)g->dropped_bytes, (unsigned long)g->uart_errors,
                (unsigned long)g->uart_error_mask);
         break;
     default:
-        DEBUG_PRINT(DEBUG_LOG_GPS_SIGNAL, "[C05] GSV view=%u cn0_n=%u max_dbhz=%u valid=%u gv=%u level=%s\r\n",
+        DEBUG_PRINT(DEBUG_LOG_GPS_SIGNAL, "[GPS] GSV view=%u cn0_n=%u max_dbhz=%u valid=%u gv=%u level=%s\r\n",
                (unsigned int)g->satellites_in_view, (unsigned int)g->signal_count,
                (unsigned int)g->signal_max_dbhz, (unsigned int)g->signal_valid,
                (unsigned int)g->gsv_valid, signal_level_names[g->signal_level]);
@@ -192,6 +193,7 @@ void app_init(void)
     BSP_GPS_Init();
     BSP_MPU6050_Init();
     app_fall_init();
+    app_audio_init();
     app_time_init();
     app_report_init();
     last_fall_state = APP_FALL_IDLE;
@@ -216,12 +218,12 @@ void app_run(void)
         if ((pressed & BSP_KEY1_PRESSED) != 0U)
         {
             app_ui_next_page();
-            DEBUG_PRINT(DEBUG_LOG_KEYS, "[C05] K1: page next\r\n");
+            DEBUG_PRINT(DEBUG_LOG_KEYS, "[KEY] K1: page next\r\n");
         }
         if ((pressed & BSP_KEY2_PRESSED) != 0U)
         {
             app_fall_toggle_alarm();
-            DEBUG_PRINT(DEBUG_LOG_KEYS, "[C05] K2: alarm control\r\n");
+            DEBUG_PRINT(DEBUG_LOG_KEYS, "[KEY] K2: alarm control\r\n");
         }
     }
 
@@ -230,6 +232,7 @@ void app_run(void)
     app_time_poll();
     app_fall_poll();
     app_report_poll();
+    app_audio_poll(app_fall_get_data()->state == APP_FALL_ALARM);
     app_ui_set_alarm(app_fall_get_data()->state == APP_FALL_ALARM);
     if (!fall_event_log_poll() && !mpu_display_log_poll())
         diagnostic_poll();
