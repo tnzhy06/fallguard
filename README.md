@@ -1,6 +1,6 @@
 # Fallguard
 
-基于 STM32F103RCT6 的腰带式跌倒报警课程演示项目。采用主循环调度，无 RTOS、无 DMA。
+基于 STM32F103RCT6 的腰带式跌倒报警课程演示项目。采用主循环调度，无 RTOS；已配置 I2S2 发送 DMA，音频播放逻辑待接入。
 
 - MPU6050：三轴加速度、角速度、Roll/Pitch；任一角度绝对值达到 60° 并持续 1 秒触发报警。
 - ATGM336H：GPS 定位、UTC、海拔及信号强度。
@@ -8,6 +8,15 @@
 - OLED：主屏、位置、GPS、姿态和网络五页；K1 切页，K2 测试报警/消警。
 
 当前报警通过 OLED、LED 和 MQTT 提示，音频输出待后续接入。
+
+ESP-01S 的 EN/CH_PD 接 **PB0**（原 PB12 接线需迁移）；TXD 接 PB11，RXD 接 PB10。
+I2S2 已配置为 8 kHz、16 位、Philips 主机发送，关闭 MCLK，使用 DMA1 Channel 5 循环半字传输。PB12、PB13、PB15 用于后续 MAX98357 音频输出，当前尚未启动音频播放：
+
+| STM32 引脚 | I2S2 信号 | MAX98357 输入 |
+|---|---|---|
+| PB12 | WS | LRC / LRCLK |
+| PB13 | CK | BCLK |
+| PB15 | SD | DIN |
 
 ## 构建与调试
 

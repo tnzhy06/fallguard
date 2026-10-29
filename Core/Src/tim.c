@@ -66,6 +66,7 @@ void MX_TIM2_Init(void)
   /* USER CODE END TIM2_Init 2 */
 
 }
+
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
 {
 
