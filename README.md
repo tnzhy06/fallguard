@@ -1,147 +1,97 @@
 # Fallguard
 
-基于 STM32F103RCT6 的腰带式跌倒报警课程演示项目。采用主循环调度，无 RTOS；I2S2 使用 DMA 输出报警语音。
+基于 STM32F103RCT6 的跌倒报警演示项目，采用主循环调度，无 RTOS。
 
-- MPU6050：三轴加速度、角速度、Roll/Pitch；任一角度绝对值达到 60° 并持续 1 秒触发报警。
-- ATGM336H：GPS 定位、UTC、海拔及信号强度。
-- ESP-01S：Wi-Fi、SNTP 校时及 MQTT 上报。
-- MAX98357A：8 kHz、16 位 I2S 语音；自动报警或 K2 测试报警时循环播放，K2 或 MQTT 消警时停止。
-- OLED：主屏、位置、GPS、姿态和网络五页；K1 切页，K2 测试报警/消警。
+- MPU6050 检测姿态：Roll 或 Pitch 绝对值达到 60° 并持续 1 秒触发报警。
+- ATGM336H 提供定位，ESP-01S 完成 Wi-Fi、SNTP 校时及 MQTT 上报。
+- MAX98357A 通过 I2S2 循环播放“我摔倒了，请帮帮我”，OLED 和 LED 同步提示。
+- K1 切换 OLED 页面；K2 测试报警或消警。消警后扶正设备，恢复自动报警待命。
 
-当前报警通过语音、OLED、LED 和 MQTT 提示。OLED 报警页显示 `AUDIO ON` 或 `AUDIO ERROR`。
+## 接线
 
-ESP-01S 的 EN/CH_PD 接 **PB0**（原 PB12 接线需迁移）；TXD 接 PB11，RXD 接 PB10。
-I2S2 配置为 8 kHz、16 位、Philips 主机发送，关闭 MCLK，使用 DMA1 Channel 5 循环半字传输。MAX98357A 的信号接线如下：
+表中为 GPIO 名称，所有模块共地，UART 使用 3.3V 电平。
 
-| STM32 引脚 | I2S2 信号 | MAX98357 输入 |
-|---|---|---|
-| PB12 | WS | LRC / LRCLK |
-| PB13 | CK | BCLK |
-| PB15 | SD | DIN |
+| 模块 | 接线 |
+|---|---|
+| MPU6050 | SCL → PB6，SDA → PB7，AD0 → GND；I2C1 400 kHz，地址 0x68 |
+| OLED | SCL → PB4，SDA → PB5；128×64 I2C 屏，地址 0x3C |
+| GPS | TXD → PA3，RXD → PA2（可不接）；115200 8N1，输出 GGA/RMC，信号强度需 GSV |
+| ESP-01S | RXD → PB10，TXD → PB11，EN → PB0；115200 8N1 |
+| MAX98357A | LRC/LRCLK → PB12，BCLK → PB13，DIN → PB15 |
+| K1 / K2 | PC8 / PC9 → 按键 → GND，内部上拉 |
+| LED | PA8，低电平点亮；正常慢闪，报警快闪 |
+| 调试串口 | PA9 → USB 转串口 RXD，PA10 → TXD（可不接）；115200 8N1 |
+| ST-LINK | SWDIO → PA13，SWCLK → PA14，GND → GND，NRST 可选 |
 
-MAX98357A 的 SD/SD_MODE 保持有效高电平或使用模块板默认使能配置，GAIN 可使用模块默认设置；当前固件不控制这两个引脚。功放与 STM32 共地，供电按模块额定要求连接。扬声器接功放的两个输出端，不将任一输出端接地。
+供电与连接要求：
 
-音频来自本地 `docs/播报语音/我摔倒了请帮帮我_8k.wav`，为 8000 Hz、单声道、16 位 PCM，原始时长 2.16 秒。转换时默认只裁掉首尾的全零采样，两端各保留 20 ms 余量（原文件不足时按实际长度保留），所有非零采样和语句中间的停顿均不改变。当前保留原文件第 592～15554 个采样（从 0 开始），共 14963 个单声道采样，时长 1.870375 秒；原 WAV 不修改，报警循环间隔随裁剪缩短。
+- ESP-01S 使用稳定的 3.3V 电源，供电能力至少 500 mA；MPU6050、OLED、GPS 使用模块支持的 3.3V 入口，I2C 上拉至 3.3V。
+- MAX98357A 接 5V，4Ω / 3W 扬声器跨接 OUT+、OUT−，任一输出均不能接地。功放的 SD/SD_MODE 保持有效使能，GAIN 可用默认配置；PB15 接 DIN。
+- ESP 的 RST、GPIO0、GPIO2 保持正常启动所需高电平；EN 由 PB0 控制，不直接短接 3.3V。
+- 开发板需具备 8 MHz HSE 和 32.768 kHz LSE 晶振，正常启动时 BOOT0 为低。
+- 若播放时 CH340 的 COM 口消失重现，优先检查供电压降及干扰。可用独立 5V 电源给功放供电并共地，先断开功放原来的 5V 连线，避免两路 5V 并联。
 
-`App/audio/alarm_pcm.c` 不包含 WAV 文件头，逐样本复制到左右声道，左右声道选择均可播放同一语音。29926 个半字（59852 字节）直接从 Flash 交给 DMA 循环读取，比完整音频的 69120 字节节省 9268 字节（约 13.4%）。不使用整段音频大小的 RAM 缓冲，也不依赖主循环补数。当前系统时钟下实际采样率约 8.007 kHz。
+## 配置与构建
 
-生成的 PCM 源码随工程保存，因此干净检出无需 `docs/` 或 Python 即可编译；`docs/` 仍保持 Git 忽略。如需替换音频，在工程根目录运行：
+使用 CMake 3.22+、Ninja、ARM GCC；将工具加入 PATH，或使用 VS Code 的 STM32Cube 工具链环境。
 
-```sh
-python tools/wav_to_pcm.py "docs/播报语音/我摔倒了请帮帮我_8k.wav"
-```
-
-转换工具仅接受 8 kHz、单声道、16 位 PCM WAV，并检查一段完整立体声循环不超过 DMA 的 16 位传输计数上限。音频启动或 DMA 出错后，本次报警不反复重试；消警后再次触发可重新播放。播放由 DMA 异步完成，停止在主循环调用 HAL 完成末帧收尾；异常硬件状态下 HAL 停止可能等待超时。相关诊断由 `DEBUG_LOG_AUDIO` 和总开关控制。
-
-转换参数 `--padding-ms` 可调整首尾保留的静音余量，`--keep-silence` 可保留完整原始时长。生成文件记录源 WAV 的 SHA-256、采样偏移与保留长度，便于核对。
-
-## 构建与调试
-
-使用 VS Code 的 STM32CubeMX/STM32Cube 扩展及其 CMake、Ninja、ARM GCC 工具链。
-
-1. 打开工程目录，使用 `Debug` 预设配置 CMake。
-2. 执行默认构建任务 `Fallguard: Build Debug`（Ctrl+Shift+B）。
-3. 连接 ST-LINK，选择 `Fallguard: Debug (ST-LINK)`，按 F5 烧录并调试。
-
-固件为 `build/Debug/fallguard.elf`，代码索引使用同目录的 `compile_commands.json`。在 STM32Cube 工具链环境中也可执行：
+1. 将 [esp_config.example.h](BSP/esp_config.example.h) 复制为 `BSP/esp_config.h`，填写 Wi-Fi。
+2. 将 [mqtt_config.example.h](BSP/mqtt_config.example.h) 复制为 `BSP/mqtt_config.h`，填写 MQTT 服务器及凭据。
+3. 在工程根目录构建：
 
 ```sh
-cube-cmake --preset Debug
-cube-cmake --build --preset Debug
+cmake --preset Debug
+cmake --build --preset Debug
 ```
 
-配置 Wi-Fi 和 MQTT：
+固件输出为 `build/Debug/fallguard.elf`；将预设改为 `Release` 可构建发布版本。STM32Cube 环境也可使用 `cube-cmake`。VS Code 中按 Ctrl+Shift+B 构建，选择 `Fallguard: Debug (ST-LINK)` 后按 F5 烧录调试。
 
-1. 将 `BSP/esp_config.example.h` 复制为 `BSP/esp_config.h`，填写 `ESP_WIFI_SSID` 和 `ESP_WIFI_PASSWORD`。
-2. 将 `BSP/mqtt_config.example.h` 复制为 `BSP/mqtt_config.h`，填写 `MQTT_HOST`、`MQTT_PORT`、`MQTT_USERNAME` 和 `MQTT_PASSWORD`。
-3. 配置完成后重新编译并烧录。
+首次 CMake 配置会自动创建缺失的本地配置头文件。凭据和 `build/` 被 Git 忽略，`docs/` 随仓库保存。
 
-首次 CMake 配置也会在上述配置头文件不存在时自动从 example 模板创建；已填写的配置不会被覆盖。
+## 使用与调试
 
-## 调试串口
+上电后保持 MPU6050 静止约 3 秒完成校准。按 K2 检查报警播放，再按 K2 停止；K1 切换主屏、位置、GPS、姿态和网络页面。GPS 模块波特率需自行配置为 115200，固件不自动修改。
 
-调试日志从 USART1 输出，使用 **3.3 V 电平的 USB 转 TTL 串口模块**连接电脑：
+日志走 USART1，可通过板载 CH340 接收。 [BSP/debug_config.h](BSP/debug_config.h) 中 `DEBUG_OUTPUT_ENABLE=0`，所有分类开关为 1；开启总开关后重新编译烧录，即可输出各类日志。
 
-| STM32 引脚 | USB 转 TTL 引脚 | 用途 |
-|---|---|---|
-| PA9（USART1_TX） | RXD | 接收设备日志 |
-| GND | GND | 共地 |
-| PA10（USART1_RX） | TXD（可不接） | 当前没有串口交互命令，仅查看日志时不需要 |
+## MQTT
 
-打开串口助手，选择对应 COM 口，设置 **115200 波特率、8 位数据位、无校验、1 位停止位、无流控（115200 8N1）**，以文本模式接收。开启相应日志并重新烧录后，先打开串口，再按开发板复位键，即可观察已启用的启动与联网日志。
+默认设备编号 `belt01`，位置每 5 秒上报。本地时间显示 UTC+8，时间戳使用 UTC Unix 秒，未校准时为 0。
 
-### 选择输出内容
+| 主题 | 用途 |
+|---|---|
+| `fallguard/belt01/loc` | 发布位置与状态：id、ts、lat、lon、fix、st（ok/fall） |
+| `fallguard/belt01/alarm` | 发布事件：ev 为 fall 或 cancel |
+| `fallguard/belt01/cmd` | 接收下表命令 |
 
-所有开关集中在 [BSP/debug_config.h](BSP/debug_config.h)，`1` 开启、`0` 关闭。修改后需**重新编译并烧录**；这些是编译配置，不能通过串口发送命令修改。关闭日志不影响采样、GPS 解析、OLED 显示、报警或 MQTT 通信。
+| 命令 | JSON |
+|---|---|
+| 请求位置 | `{"cmd":"loc"}` |
+| 消警 | `{"cmd":"clear"}` |
+| 设置上报周期 | `{"cmd":"intv","v":10}`，允许 1～3600 秒，重启恢复 5 秒 |
 
-当前总开关 `DEBUG_OUTPUT_ENABLE` 和所有 `DEBUG_LOG_*` 分类开关均为 `1`，USART1 输出全部分类的调试日志，包括周期时间信息。需要减少输出时，将对应分类设为 `0`；完全静默时将总开关设为 `0`。
+经纬度为整数微度，除以 1000000 得到度；定位失效时可保留上次坐标，应结合 fix 判断。离线事件不补发，重连后上报当前状态。
 
-日志统一使用类型前缀：`[BOOT]` 启动、`[TIM]` 定时器、`[KEY]` 按键、`[GPS]` GPS（含 GSV）、`[MPU]` 姿态传感器、`[OLED]` 显示、`[RTC]` 时间、`[ESP]` / `[ESP RX]` AT 通信、`[MQTT]` MQTT、`[REPORT]` 上报、`[FALL]` 报警、`[AUDIO]` 音频。
+## 音频与测试
 
-| 宏 | 输出内容 | 当前值 |
-|---|---|---|
-| `DEBUG_OUTPUT_ENABLE` | 所有调试日志的总开关 | 1 |
-| `DEBUG_LOG_BOOT` | 启动横幅、时钟、接线提示 | 1 |
-| `DEBUG_LOG_STATUS` | MPU 配置/零偏完成、OLED 初始化成功等状态 | 1 |
-| `DEBUG_LOG_KEYS` | 按键操作 | 1 |
-| `DEBUG_LOG_ERRORS` | 通用错误提示 | 1 |
-| `DEBUG_LOG_FALL` | 报警、消警、扶正重新待命事件 | 1 |
-| `DEBUG_LOG_AUDIO` | I2S2 语音启动、停止和错误 | 1 |
-| `DEBUG_LOG_ESP` | AT 发送步骤、联网提示及 ESP 错误；凭据隐藏 | 1 |
-| `DEBUG_LOG_ESP_RX` | ESP 返回的响应行；凭据命令回显隐藏 | 1 |
-| `DEBUG_LOG_MQTT` | MQTT 连接、订阅、发布和重连状态 | 1 |
-| `DEBUG_LOG_REPORT` | 上报 JSON、下行命令处理和上报周期 | 1 |
-| `DEBUG_LOG_TIME` | RTC 启动、SNTP 校时及 RTC 写失败事件 | 1 |
-| `DEBUG_LOG_TIME_PERIODIC` | 周期时间或未校准状态，需同时开启 `DEBUG_LOG_TIME` | 1 |
-| `DEBUG_LOG_MPU_ACCEL` | 三轴加速度，单位 mg（1000 mg = 1 g） | 1 |
-| `DEBUG_LOG_MPU_GYRO` | 三轴角速度，单位 mdps（1000 mdps = 1°/s） | 1 |
-| `DEBUG_LOG_MPU_ANGLES` | Roll/Pitch，单位 cdeg（100 cdeg = 1°），以及采样间隔 dt/max（ms） | 1 |
-| `DEBUG_LOG_GPS_FIX` | 定位有效性、历史位置标志、卫星数、位置年龄 | 1 |
-| `DEBUG_LOG_GPS_POSITION` | 经纬度，单位为整数微度（除以 1000000 得到度） | 1 |
-| `DEBUG_LOG_GPS_UTC` | GPS UTC 日期时间与有效标志 | 1 |
-| `DEBUG_LOG_GPS_ALTITUDE` | 海拔（cm）、HDOP × 100 及有效标志 | 1 |
-| `DEBUG_LOG_GPS_STATS` | NMEA 接收、解析、校验及串口错误计数 | 1 |
-| `DEBUG_LOG_GPS_SIGNAL` | GSV 可见卫星、最大 C/N₀（dBHz）和信号档位 | 1 |
+语音为 8 kHz、16 位 PCM，由 I2S2 循环 DMA 从 Flash 播放，左右声道内容相同，单次约 1.87 秒。固件直接编译 `App/audio/alarm_pcm.c`，无需源 WAV 或 SD 卡。
 
-`DEBUG_LOG_ERRORS=0` 时，ESP 错误仍可随 `DEBUG_LOG_ESP` 输出，RTC 写失败仍可随 `DEBUG_LOG_TIME` 输出。需要完全静默时，将 `DEBUG_OUTPUT_ENABLE` 改为 `0`。
+替换语音时准备 8 kHz、单声道、16 位 PCM WAV，再运行：
 
-### 常用配置
-
-只看 Roll/Pitch：将其余 `DEBUG_LOG_*` 都设为 `0`，保留以下配置：
-
-```c
-#define DEBUG_OUTPUT_ENABLE       1
-#define DEBUG_LOG_MPU_ANGLES      1
-#define DEBUG_MPU_PERIOD_MS       200U
+```sh
+python tools/wav_to_pcm.py "path/to/alarm_8k.wav"
+python -m unittest discover -s tests -v
 ```
 
-如需同时看六轴数据，再将 `DEBUG_LOG_MPU_ACCEL` 和 `DEBUG_LOG_MPU_GYRO` 改为 `1`。
+转换默认裁去首尾全零采样，各保留 20 ms 余量；`--keep-silence` 保留完整音频。转换后重新编译烧录。
 
-只看 GPS 位置和信号：将其余 `DEBUG_LOG_*` 都设为 `0`，保留以下配置：
+## 资料与目录
 
-```c
-#define DEBUG_OUTPUT_ENABLE       1
-#define DEBUG_LOG_GPS_POSITION    1
-#define DEBUG_LOG_GPS_SIGNAL      1
-#define DEBUG_GPS_PERIOD_MS       250U
-```
-
-观察 RTC 连续走时：将 `DEBUG_OUTPUT_ENABLE`、`DEBUG_LOG_TIME` 和 `DEBUG_LOG_TIME_PERIODIC` 同时设为 `1`。RTC 显示为 UTC+8，GPS 日志中的 UTC 保持 UTC。
-
-### 输出周期
-
-| 宏 | 默认值 | 含义 |
-|---|---|---|
-| `DEBUG_MPU_PERIOD_MS` | `200U` | 开始一组 MPU 日志快照的最小间隔；同组各行使用同一样本号 |
-| `DEBUG_GPS_PERIOD_MS` | `250U` | 相邻两条已开启的 GPS 日志行的最小间隔，多项开启时轮流输出 |
-| `DEBUG_TIME_PERIOD_MS` | `1000U` | RTC 周期日志间隔，仅在两个 TIME 开关都开启时生效 |
-
-周期单位为 ms，调度可能使实际间隔增加。日志周期不改变 MPU 的 100 Hz 采样、GPS 的 5 秒过期规则或 MQTT 上报周期。
-
-## 使用说明
-
-上电后保持 MPU6050 静止约 3 秒，等待陀螺零偏校准。消警后需扶正至 Roll、Pitch 的绝对值均小于 60°，才会再次自动触发。
-
-默认设备编号 `belt01`，MQTT 主题为 `fallguard/belt01/loc`、`fallguard/belt01/alarm`、`fallguard/belt01/cmd`。默认每 5 秒上报，命令允许设置 1～3600 秒；MQTT 不上报卫星数。调试日志可按上文分类选择。
-
-第三方代码及许可证见 `ThirdParty/`。本项目用于课程演示。
+- `App/`：应用逻辑；`BSP/`：外设驱动；`Core/`：CubeMX 初始化和中断。
+- `Drivers/`：CMSIS/HAL；`ThirdParty/`：第三方代码及许可证。
+- [fallguard.ioc](fallguard.ioc)：CubeMX 配置。
+- [MAX98357A/MAX98357B 数据手册](docs/MAX98357A-MAX98357B.pdf)
+- [STM32F103RC 数据手册](docs/ST-STM32F103RC.pdf)
+- [ESP-01S 规格书](docs/ESP-01S/ESP-01S规格书-20250802.pdf)、[ESP-AT 用户指南](docs/ESP-01S/ESP-AT%20User%20Guide.pdf)
+- [GPS 数据手册](docs/ATGM336H-5N/ATGM336H-5N模块数据手册.pdf)、[使用手册](docs/ATGM336H-5N/ATGM336H-5N模块使用手册.pdf)、[常见问题](docs/ATGM336H-5N/北斗模块%20%20常见问题必看必看.pdf)
+- [开源项目链接](docs/开源项目.txt)

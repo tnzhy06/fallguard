@@ -2,9 +2,6 @@
 /[Aa][Gg][Ee][Nn][Tt].md
 /[Aa][Gg][Ee][Nn][Tt][Ss].md
 
-# Local reference documents
-/docs/
-
 # CMake and CubeMX temporary output
 /build/
 /mx.scratch/

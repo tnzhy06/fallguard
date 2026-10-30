@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#define DEBUG_OUTPUT_ENABLE       1
+#define DEBUG_OUTPUT_ENABLE       0
 
 #define DEBUG_LOG_BOOT            1
 #define DEBUG_LOG_STATUS          1
