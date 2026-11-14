@@ -25,9 +25,15 @@
 #define MQTT_PASSWORD ""
 #define MQTT_KEEPALIVE_SECONDS 120U
 
-/* 跌倒判断。角度单位为度，持续时间单位为毫秒。 */
+/* 课堂手持演示：回正布防 -> 快速倾倒 -> 保持倾倒姿态。角度为度，时间为 ms。 */
 #define APP_FALL_ANGLE_DEG 60
-#define APP_FALL_HOLD_MS 1000U
+#define APP_FALL_HOLD_MS 600U
+/* 离开回正区后，必须在此窗口内达到倾倒角度；慢慢摆放不会报警。 */
+#define APP_FALL_TILT_WINDOW_MS 300U
+#define APP_FALL_UPRIGHT_ANGLE_DEG 35
+#define APP_FALL_UPRIGHT_HOLD_MS 300U
+/* 更长的样本间隔清除候选与布防计时，恢复后需重新回正。 */
+#define APP_FALL_SAMPLE_GAP_MS 100U
 
 /* MPU6050。INT 接 PA1 / EXTI1；AD0 接地使用 0x68，接高电平使用 0x69。
  * 校准数量按有效 DATA_RDY 中断样本计数，超时用于检测 INT 缺失或采样停止。 */
@@ -159,6 +165,13 @@
 /* 编译期校验，防止除零、索引溢出和无效外设参数。 */
 #if APP_FALL_ANGLE_DEG < 1 || APP_FALL_ANGLE_DEG > 180 || APP_FALL_HOLD_MS < 1U
 #error "Invalid fall detection threshold or hold time"
+#endif
+#if APP_FALL_UPRIGHT_ANGLE_DEG < 0 || APP_FALL_UPRIGHT_ANGLE_DEG >= APP_FALL_ANGLE_DEG
+#error "Upright angle must be nonnegative and below the fall angle"
+#endif
+#if APP_FALL_TILT_WINDOW_MS < 1U || APP_FALL_UPRIGHT_HOLD_MS < 1U || \
+    APP_FALL_SAMPLE_GAP_MS < 1U || APP_FALL_SAMPLE_GAP_MS > BSP_MPU6050_SAMPLE_TIMEOUT_MS
+#error "Invalid demo gesture timing or sample gap"
 #endif
 #if MPU6050_I2C_ADDRESS != 0x68U && MPU6050_I2C_ADDRESS != 0x69U
 #error "MPU6050 I2C address must be 0x68 or 0x69"
