@@ -43,28 +43,24 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Keep credentials local while allowing a clean checkout to build.
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config.h")
-    configure_file(BSP/esp_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/esp_config.h" COPYONLY)
-endif()
-
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config.h")
-    configure_file(BSP/mqtt_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/BSP/mqtt_config.h" COPYONLY)
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/App/app_config.h")
+    configure_file(App/app_config.example.h "${CMAKE_CURRENT_SOURCE_DIR}/App/app_config.h" COPYONLY)
 endif()
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/bsp_audio.c
+    BSP/bsp_log.c
     BSP/bsp_rtc.c
     BSP/bsp_esp.c
     BSP/bsp_led.c
     BSP/bsp_key.c
-    BSP/bsp_delay.c
-    BSP/bsp_oled.c
+    BSP/bsp_lcd.c
+    ThirdParty/FloydFish_ST7789/st7789.c
     BSP/bsp_mpu6050.c
     ThirdParty/leech001_mpu6050/mpu6050.c
     BSP/bsp_gps.c
     ThirdParty/lwgps/src/lwgps/lwgps.c
-    ThirdParty/zeruns_oled/oled_data.c
     App/app_audio.c
     App/audio/alarm_pcm.c
     App/app_json.c
@@ -79,7 +75,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     BSP
     App
-    ThirdParty/zeruns_oled
+    ThirdParty/FloydFish_ST7789
+    ThirdParty/NotoSansSC
     ThirdParty/leech001_mpu6050
     ThirdParty/lwgps
     ThirdParty/lwgps/src/include

@@ -1,5 +1,6 @@
 #include "bsp_led.h"
 #include "main.h"
+#include "app_config.h"
 
 static bsp_led_mode_t led_mode;
 static uint32_t led_last_tick;
@@ -32,11 +33,11 @@ void BSP_LED_Poll(void)
 
     if (led_mode == BSP_LED_NORMAL)
     {
-        interval = 500U;
+        interval = LED_NORMAL_INTERVAL_MS;
     }
     else if (led_mode == BSP_LED_ALARM)
     {
-        interval = 100U;
+        interval = LED_ALARM_INTERVAL_MS;
     }
     else
     {

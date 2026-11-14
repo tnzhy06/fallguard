@@ -1,31 +1,26 @@
 #ifndef APP_FALL_H
 #define APP_FALL_H
 
+#include "app_config.h"
 #include <stdint.h>
 
-#define APP_FALL_ANGLE_DEG 60
-#define APP_FALL_HOLD_MS   1000U
-
-typedef enum
-{
-    APP_FALL_IDLE,
-    APP_FALL_HOLDING,
-    APP_FALL_ALARM,
-    APP_FALL_WAIT_UPRIGHT
+typedef enum {
+  APP_FALL_IDLE,
+  APP_FALL_HOLDING,
+  APP_FALL_ALARM,
+  APP_FALL_WAIT_UPRIGHT
 } app_fall_state_t;
 
-typedef enum
-{
-    APP_FALL_SOURCE_NONE,
-    APP_FALL_SOURCE_AUTO,
-    APP_FALL_SOURCE_MANUAL
+typedef enum {
+  APP_FALL_SOURCE_NONE,
+  APP_FALL_SOURCE_AUTO,
+  APP_FALL_SOURCE_MANUAL
 } app_fall_source_t;
 
-typedef struct
-{
-    app_fall_state_t state;
-    app_fall_source_t source;
-    uint32_t held_ms;
+typedef struct {
+  app_fall_state_t state;
+  app_fall_source_t source;
+  uint32_t held_ms;
 } app_fall_data_t;
 
 void app_fall_init(void);

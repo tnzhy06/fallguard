@@ -40,12 +40,14 @@ JLinkSettings.ini
 .DS_Store
 Thumbs.db
 
-# Executable utilities and extensionless 8051 build output in reference material
+# Executable utilities
 *.exe
-/docs/**/main
+
+# Local reference documents
+/docs/
 
 # Local credentials
-/BSP/esp_config.h
+/App/app_config.h
 .env
 .env.*
 !.env.example
@@ -54,4 +56,6 @@ Thumbs.db
 *.M51
 *.m51
 
-/BSP/mqtt_config.h
+# Python font generation and host verification
+__pycache__/
+*.py[cod]

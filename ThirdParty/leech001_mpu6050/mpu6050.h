@@ -2,6 +2,7 @@
 #define LEECH001_MPU6050_H
 
 #include "stm32f1xx_hal.h"
+#include "app_config.h"
 
 typedef struct
 {
@@ -20,11 +21,14 @@ typedef struct
     double angle_x, angle_y;
 } mpu6050_data_t;
 
-#define MPU6050_ADDRESS (0x68U << 1)
-#define MPU6050_TIMEOUT_MS 5U
+#define MPU6050_ADDRESS (MPU6050_I2C_ADDRESS << 1)
 
 uint8_t mpu6050_reset(I2C_HandleTypeDef *i2c);
 uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c);
+/* Arm latched, active-high DATA_RDY after startup settling. Returns 1 on success. */
+uint8_t mpu6050_enable_data_ready(I2C_HandleTypeDef *i2c);
+/* Read INT_STATUS and the contiguous six-axis/temperature block in one burst.
+   Returns 1 for fresh data, 0 for a spurious IRQ, 2 for a bus error. */
 uint8_t mpu6050_read_all(I2C_HandleTypeDef *i2c, mpu6050_data_t *data);
 void mpu6050_filter_reset(void);
 void mpu6050_filter_update(mpu6050_data_t *data, uint32_t tick);

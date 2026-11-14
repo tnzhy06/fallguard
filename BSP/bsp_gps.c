@@ -1,11 +1,8 @@
 #include "bsp_gps.h"
 #include "stm32f1xx_hal.h"
 #include "lwgps/lwgps.h"
+#include "app_config.h"
 #include <string.h>
-
-#define GPS_RING_SIZE 1024U
-#define GPS_FRAME_SIZE 128U
-#define GPS_STALE_MS 5000U
 
 static volatile uint8_t rx_ring[GPS_RING_SIZE];
 static volatile uint16_t rx_head, rx_tail;
@@ -430,7 +427,7 @@ void BSP_GPS_Poll(void)
         have_gsv = 0U;
         reset_gsv_block();
     }
-    for (unsigned int budget = 0U; (budget < 128U) && (rx_tail != rx_head); ++budget)
+    for (unsigned int budget = 0U; (budget < GPS_POLL_BUDGET) && (rx_tail != rx_head); ++budget)
     {
         uint8_t byte = rx_ring[rx_tail];
         rx_tail = (uint16_t)((rx_tail + 1U) % GPS_RING_SIZE);
@@ -489,9 +486,9 @@ void BSP_GPS_Poll(void)
     data.signal_level = BSP_GPS_SIGNAL_NONE;
     if (data.signal_valid && (data.signal_max_dbhz > 0U))
     {
-        if (data.signal_max_dbhz >= 40U)
+        if (data.signal_max_dbhz >= GPS_SIGNAL_STRONG_DBHZ)
             data.signal_level = BSP_GPS_SIGNAL_STRONG;
-        else if (data.signal_max_dbhz >= 30U)
+        else if (data.signal_max_dbhz >= GPS_SIGNAL_MEDIUM_DBHZ)
             data.signal_level = BSP_GPS_SIGNAL_MEDIUM;
         else
             data.signal_level = BSP_GPS_SIGNAL_WEAK;

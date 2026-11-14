@@ -1,7 +1,6 @@
 #include "bsp_key.h"
 #include "main.h"
-
-#define KEY_DEBOUNCE_MS 20U
+#include "app_config.h"
 
 typedef struct
 {

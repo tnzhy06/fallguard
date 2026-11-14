@@ -1,4 +1,4 @@
-"""Embed PCM16 mono WAV as an 8 kHz stereo DMA loop, trimming zero-only edges."""
+"""Embed PCM16 mono WAV for 16 kHz streamed playback, trimming zero-only edges."""
 
 import argparse
 import hashlib
@@ -6,15 +6,18 @@ from pathlib import Path
 import struct
 import wave
 
+SAMPLE_RATE_HZ = 16000
+MAX_MONO_FRAMES = 0xFFFFFFFF  # uint32_t streaming source length; Flash limits final size.
+
 
 def read_pcm(source: Path) -> tuple[int, ...]:
     with wave.open(str(source), "rb") as reader:
         if (reader.getframerate(), reader.getnchannels(), reader.getsampwidth(),
-                reader.getcomptype()) != (8000, 1, 2, "NONE"):
-            raise ValueError("Input must be 8000 Hz, mono, uncompressed 16-bit PCM WAV")
+                reader.getcomptype()) != (SAMPLE_RATE_HZ, 1, 2, "NONE"):
+            raise ValueError("Input must be 16000 Hz, mono, uncompressed 16-bit PCM WAV")
         frames = reader.getnframes()
-        if not 0 < frames <= 32767:
-            raise ValueError("One circular DMA loop supports 1..32767 mono frames")
+        if frames <= 0:
+            raise ValueError("Input must contain at least 1 mono frame")
         raw = reader.readframes(frames)
         if len(raw) != frames * 2:
             raise ValueError("Truncated WAV sample data")
@@ -29,7 +32,7 @@ def trim_silence(samples: tuple[int, ...], padding_ms: int = 20) -> tuple[tuple[
     if first is None:
         raise ValueError("WAV contains only silence")
     last = len(samples) - next(index for index, value in enumerate(reversed(samples)) if value != 0)
-    padding = padding_ms * 8  # Exactly 8 samples per millisecond at 8000 Hz.
+    padding = padding_ms * SAMPLE_RATE_HZ // 1000
     start, end = max(0, first - padding), min(len(samples), last + padding)
     return samples[start:end], start
 
@@ -38,7 +41,9 @@ def generate(source: Path, output: Path, *, trim: bool = True,
              padding_ms: int = 20) -> tuple[Path, Path]:
     original = read_pcm(source)
     mono, start = trim_silence(original, padding_ms) if trim else (original, 0)
-    stereo = [value for sample in mono for value in (sample, sample)]
+    # The small DMA buffer is independent of the total source length.
+    if not 0 < len(mono) <= MAX_MONO_FRAMES:
+        raise ValueError("PCM streaming source must contain 1..4294967295 mono frames")
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     # Escape comment terminators even if a different input filename is supplied.
     source_name = source.name.replace("*/", "* /").replace("\n", " ").replace("\r", " ")
@@ -47,21 +52,22 @@ def generate(source: Path, output: Path, *, trim: bool = True,
                   f" * Source mono frames: {len(original)}; kept [{start}, {start + len(mono)}).\n"
                   f" * Edge trimming: {'exact zeros only' if trim else 'disabled'}; "
                   f"padding: {padding_ms if trim else 0} ms per edge when available.\n"
-                  " * Signed PCM16, 8 kHz; mono samples duplicated into L/R slots.\n"
+                  " * Signed PCM16, 16 kHz; stored once as mono.\n"
+                  " * BSP_AUDIO duplicates into L/R slots in its RAM DMA buffer.\n"
                   " * Regenerate this file when the source audio changes.\n */\n")
     header = ("#ifndef APP_ALARM_PCM_H\n#define APP_ALARM_PCM_H\n\n"
               "#include <stdint.h>\n\n"
-              "#define APP_ALARM_PCM_RATE_HZ 8000U\n"
+              f"#define APP_ALARM_PCM_RATE_HZ {SAMPLE_RATE_HZ}U\n"
+              "#define APP_ALARM_PCM_CHANNELS 1U\n"
               f"#define APP_ALARM_PCM_SOURCE_FRAMES {len(original)}U\n"
               f"#define APP_ALARM_PCM_OFFSET_FRAMES {start}U\n"
               f"#define APP_ALARM_PCM_FRAMES {len(mono)}U\n"
-              f"#define APP_ALARM_PCM_WORDS {len(stereo)}U\n\n"
-              "extern const int16_t app_alarm_pcm[APP_ALARM_PCM_WORDS];\n\n"
+              "\nextern const int16_t app_alarm_pcm[APP_ALARM_PCM_FRAMES];\n\n"
               "#endif\n")
-    rows = ["    " + ", ".join(map(str, stereo[index:index + 12])) + ","
-            for index in range(0, len(stereo), 12)]
+    rows = ["    " + ", ".join(map(str, mono[index:index + 12])) + ","
+            for index in range(0, len(mono), 12)]
     code = (provenance + '#include "alarm_pcm.h"\n\n'
-            "_Alignas(4) const int16_t app_alarm_pcm[APP_ALARM_PCM_WORDS] = {\n"
+            "_Alignas(4) const int16_t app_alarm_pcm[APP_ALARM_PCM_FRAMES] = {\n"
             + "\n".join(rows) + "\n};\n")
     output.mkdir(parents=True, exist_ok=True)
     header_path, code_path = output / "alarm_pcm.h", output / "alarm_pcm.c"
@@ -72,7 +78,7 @@ def generate(source: Path, output: Path, *, trim: bool = True,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", type=Path, help="8000 Hz, PCM16 mono WAV")
+    parser.add_argument("source", type=Path, help="16000 Hz, PCM16 mono WAV")
     parser.add_argument("--output-dir", type=Path, default=Path("App/audio"))
     parser.add_argument("--keep-silence", action="store_true", help="Keep the entire source WAV")
     parser.add_argument("--padding-ms", type=int, default=20,

@@ -1,9 +1,10 @@
 #include "bsp_rtc.h"
 #include "rtc.h"
+#include "app_config.h"
 #include <string.h>
 
 #define RTC_BACKUP_MAGIC 0xC808U
-#define RTC_LOCAL_OFFSET 28800UL
+#define RTC_LOCAL_OFFSET (APP_TIMEZONE_HOURS * 3600L)
 
 static bsp_rtc_data_t data;
 static uint32_t base_utc;
@@ -29,8 +30,8 @@ uint32_t BSP_RTC_ToUnixUtc(const bsp_rtc_datetime_t *local)
     for (uint8_t m = 1U; m < local->month; ++m)
         days += month_days(local->year, m);
     days += local->day - 1U;
-    return days * 86400UL + local->hour * 3600UL + local->minute * 60UL +
-           local->second - RTC_LOCAL_OFFSET;
+    return (uint32_t)((int64_t)days * 86400L + local->hour * 3600L + local->minute * 60L +
+                      local->second - RTC_LOCAL_OFFSET);
 }
 
 static uint32_t read_counter(void)
@@ -49,10 +50,11 @@ uint8_t BSP_RTC_HasBackup(void)
     uint32_t low = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
     uint32_t high = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
     uint32_t base = (high << 16U) | low;
+    int64_t local_base = (int64_t)base + RTC_LOCAL_OFFSET;
 
     return (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == RTC_BACKUP_MAGIC) &&
            (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR4) == (low ^ high ^ RTC_BACKUP_MAGIC)) &&
-           (base >= 946656000UL) && (base <= 4102329600UL) &&
+           (local_base >= 946684800LL) && (local_base <= 4102358400LL) &&
            (__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET) &&
            !__HAL_RTC_OVERFLOW_GET_FLAG(&hrtc, RTC_FLAG_OW);
 }
@@ -72,6 +74,7 @@ void BSP_RTC_Init(void)
 void BSP_RTC_Poll(void)
 {
     uint32_t elapsed, local_seconds, days;
+    int64_t local_time;
     uint16_t year = 1970U;
     uint8_t month = 1U;
 
@@ -87,14 +90,15 @@ void BSP_RTC_Poll(void)
         return;
     }
     data.unix_utc = base_utc + elapsed;
-    if (data.unix_utc > 4102415999UL)
+    local_time = (int64_t)data.unix_utc + RTC_LOCAL_OFFSET;
+    if ((local_time < 946684800LL) || (local_time > 4102444799LL))
     {
         data.valid = 0U;
         data.unix_utc = 0U;
         data.error = 1U;
         return;
     }
-    local_seconds = data.unix_utc + RTC_LOCAL_OFFSET;
+    local_seconds = (uint32_t)local_time;
     days = local_seconds / 86400UL;
     while (days >= (uint32_t)(365U + ((year % 4U == 0U) &&
            ((year % 100U != 0U) || (year % 400U == 0U)))))

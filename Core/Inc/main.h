@@ -57,18 +57,25 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define MPU6050_INT_Pin GPIO_PIN_1
+#define MPU6050_INT_GPIO_Port GPIOA
+#define MPU6050_INT_EXTI_IRQn EXTI1_IRQn
+#define LCD_CS_Pin GPIO_PIN_4
+#define LCD_CS_GPIO_Port GPIOA
 #define ESP_EN_Pin GPIO_PIN_0
 #define ESP_EN_GPIO_Port GPIOB
+#define LCD_BL_Pin GPIO_PIN_1
+#define LCD_BL_GPIO_Port GPIOB
+#define LED_Pin GPIO_PIN_7
+#define LED_GPIO_Port GPIOC
 #define KEY1_Pin GPIO_PIN_8
 #define KEY1_GPIO_Port GPIOC
 #define KEY2_Pin GPIO_PIN_9
 #define KEY2_GPIO_Port GPIOC
-#define LED_Pin GPIO_PIN_8
-#define LED_GPIO_Port GPIOA
-#define OLED_SCL_Pin GPIO_PIN_4
-#define OLED_SCL_GPIO_Port GPIOB
-#define OLED_SDA_Pin GPIO_PIN_5
-#define OLED_SDA_GPIO_Port GPIOB
+#define LCD_DC_Pin GPIO_PIN_4
+#define LCD_DC_GPIO_Port GPIOB
+#define LCD_RST_Pin GPIO_PIN_5
+#define LCD_RST_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

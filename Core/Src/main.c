@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -22,6 +22,7 @@
 #include "i2c.h"
 #include "i2s.h"
 #include "rtc.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -29,11 +30,13 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.h"
-#include "debug_config.h"
-#include "bsp_gps.h"
 #include "bsp_esp.h"
+#include "bsp_gps.h"
+#include "bsp_log.h"
+#include "bsp_mpu6050.h"
 #include <errno.h>
 #include <stdio.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,22 +74,22 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void gps_receive_start(void)
-{
-    HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart2, &gps_rx_byte, 1U);
+static void gps_receive_start(void) {
+  HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart2, &gps_rx_byte, 1U);
 
-    gps_rx_retry = (status != HAL_OK) && (huart2.RxState != HAL_UART_STATE_BUSY_RX);
-    if (gps_rx_retry != 0U)
-        BSP_GPS_RxError(HAL_UART_GetError(&huart2) | 0x80000000UL);
+  gps_rx_retry =
+      (status != HAL_OK) && (huart2.RxState != HAL_UART_STATE_BUSY_RX);
+  if (gps_rx_retry != 0U)
+    BSP_GPS_RxError(HAL_UART_GetError(&huart2) | 0x80000000UL);
 }
 
-static void esp_receive_start(void)
-{
-    HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart3, &esp_rx_byte, 1U);
+static void esp_receive_start(void) {
+  HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart3, &esp_rx_byte, 1U);
 
-    esp_rx_retry = (status != HAL_OK) && (huart3.RxState != HAL_UART_STATE_BUSY_RX);
-    if (esp_rx_retry != 0U)
-        BSP_ESP_RxError(HAL_UART_GetError(&huart3) | 0x80000000UL);
+  esp_rx_retry =
+      (status != HAL_OK) && (huart3.RxState != HAL_UART_STATE_BUSY_RX);
+  if (esp_rx_retry != 0U)
+    BSP_ESP_RxError(HAL_UART_GetError(&huart3) | 0x80000000UL);
 }
 /* USER CODE END 0 */
 
@@ -127,53 +130,65 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   MX_I2S2_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  BSP_LOG_Init();
   setvbuf(stdout, NULL, _IONBF, 0);
 
   DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n[BOOT] fallguard\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[BOOT] HCLK=%lu Hz LSE_READY=%lu\r\n",
-         (unsigned long)HAL_RCC_GetHCLKFreq(),
-         (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
+              (unsigned long)HAL_RCC_GetHCLKFreq(),
+              (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
 
-  if (HAL_TIM_Base_Start(&htim2) != HAL_OK)
-  {
+  if (HAL_TIM_Base_Start(&htim2) != HAL_OK) {
     DEBUG_PRINT(DEBUG_LOG_ERRORS, "[TIM] TIM2 start failed\r\n");
     Error_Handler();
   }
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[MPU] PB6=SCL PB7=SDA @0x68; keep STILL (~3s), 100Hz 2g/250dps\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT,
+              "[MPU] PB6=SCL PB7=SDA PA1=INT @0x%02X; calibration=%u samples, "
+              "keep STILL\r\n",
+              (unsigned int)MPU6050_I2C_ADDRESS,
+              (unsigned int)BSP_MPU6050_CALIBRATION_SAMPLES);
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
   esp_receive_start();
   esp_rx_retry_tick = HAL_GetTick();
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[GPS] TX->PA3, USART2 115200 8N1, stale=5000ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT,
+              "[GPS] TX->PA3, USART2 115200 8N1, stale=%lu ms\r\n",
+              (unsigned long)GPS_STALE_MS);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[TIM] TIM2 started; MQTT/RTC pages show network and time\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[OLED] PB4=SCL PB5=SDA @0x3C; init pending\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[KEY] K1=OLED page; K2=test alarm; debounce=20ms\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT,
+              "[TIM] TIM2 started; MQTT/RTC pages show network and time\r\n");
+  DEBUG_PRINT(
+      DEBUG_LOG_BOOT,
+      "[LCD] ST7789 240x240 SPI1 18MHz PA5=SCK PA7=MOSI; init pending\r\n");
+  DEBUG_PRINT(DEBUG_LOG_BOOT,
+              "[KEY] K1=LCD page; K2=test alarm; debounce=%lu ms\r\n",
+              (unsigned long)KEY_DEBOUNCE_MS);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
     if ((gps_rx_retry != 0U) &&
-        ((uint32_t)(HAL_GetTick() - gps_rx_retry_tick) >= 5U))
-    {
+        ((uint32_t)(HAL_GetTick() - gps_rx_retry_tick) >=
+         APP_UART_RX_RETRY_MS)) {
       gps_rx_retry_tick = HAL_GetTick();
       gps_receive_start();
     }
     if ((esp_rx_retry != 0U) &&
-        ((uint32_t)(HAL_GetTick() - esp_rx_retry_tick) >= 5U))
-    {
+        ((uint32_t)(HAL_GetTick() - esp_rx_retry_tick) >=
+         APP_UART_RX_RETRY_MS)) {
       esp_rx_retry_tick = HAL_GetTick();
       esp_receive_start();
     }
     app_run();
+    BSP_LOG_Poll();
   }
   /* USER CODE END 3 */
 }
@@ -227,64 +242,60 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-    if (huart == &huart2)
-    {
-        /* Rearming clears ErrorCode before HAL can finish handling an overrun. */
-        if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE)
-        {
-            BSP_GPS_RxByte(gps_rx_byte);
-            gps_receive_start();
-        }
-    }
-    else if (huart == &huart3)
-    {
-        if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE)
-        {
-            BSP_ESP_RxByte(esp_rx_byte);
-            esp_receive_start();
-        }
-    }
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  if (GPIO_Pin == MPU6050_INT_Pin)
+    BSP_MPU6050_DataReadyIRQ();
 }
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
-{
-    if (huart == &huart2)
-    {
-        BSP_GPS_RxError(HAL_UART_GetError(huart));
-        if (huart->RxState == HAL_UART_STATE_READY)
-            gps_receive_start();
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  if (huart == &huart2) {
+    /* Rearming clears ErrorCode before HAL can finish handling an overrun. */
+    if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE) {
+      BSP_GPS_RxByte(gps_rx_byte);
+      gps_receive_start();
     }
-    else if (huart == &huart3)
-    {
-        BSP_ESP_RxError(HAL_UART_GetError(huart));
-        if (huart->RxState == HAL_UART_STATE_READY)
-            esp_receive_start();
+  } else if (huart == &huart3) {
+    if (HAL_UART_GetError(huart) == HAL_UART_ERROR_NONE) {
+      BSP_ESP_RxByte(esp_rx_byte);
+      esp_receive_start();
     }
+  }
 }
 
-int _write(int file, char *ptr, int len)
-{
-    (void)file;
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  if (huart == &huart1) {
+    BSP_LOG_TxError();
+  } else if (huart == &huart2) {
+    BSP_GPS_RxError(HAL_UART_GetError(huart));
+    if (huart->RxState == HAL_UART_STATE_READY)
+      gps_receive_start();
+  } else if (huart == &huart3) {
+    BSP_ESP_RxError(HAL_UART_GetError(huart));
+    if (huart->RxState == HAL_UART_STATE_READY)
+      esp_receive_start();
+  }
+}
 
-    if (len == 0)
-    {
-        return 0;
-    }
-    if ((len < 0) || (len > UINT16_MAX))
-    {
-        errno = EINVAL;
-        return -1;
-    }
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+  if (huart == &huart1)
+    BSP_LOG_TxComplete();
+}
 
-    /* Bound logging time so a UART fault cannot stall the polling loop. */
-    if (HAL_UART_Transmit(&huart1, (uint8_t *)ptr, (uint16_t)len, 20U) != HAL_OK)
-    {
-        errno = EIO;
-        return -1;
-    }
-    return len;
+int _write(int file, char *ptr, int len) {
+  (void)file;
+
+  if (len == 0) {
+    return 0;
+  }
+  if ((ptr == NULL) || (len < 0) || (len > UINT16_MAX)) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  /* A full log buffer drops excess output without blocking or poisoning stdout.
+   */
+  BSP_LOG_Write(ptr, (uint16_t)len);
+  return len;
 }
 /* USER CODE END 4 */
 
@@ -297,8 +308,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1)
-  {
+  while (1) {
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -313,8 +323,9 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* User can add his own implementation to report the file name and line
+     number, ex: printf("Wrong parameters value: file %s on line %d\r\n", file,
+     line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

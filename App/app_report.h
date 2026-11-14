@@ -2,9 +2,8 @@
 #define APP_REPORT_H
 #include <stdint.h>
 
-typedef struct
-{
-    uint32_t interval_seconds, bad_commands, dropped_events;
+typedef struct {
+  uint32_t interval_seconds, bad_commands, dropped_events;
 } app_report_data_t;
 
 void app_report_init(void);

@@ -1,13 +1,13 @@
 #ifndef APP_AUDIO_H
 #define APP_AUDIO_H
 
+#include "app_config.h"
 #include <stdint.h>
 
-typedef enum
-{
-    APP_AUDIO_IDLE,
-    APP_AUDIO_PLAYING,
-    APP_AUDIO_ERROR
+typedef enum {
+  APP_AUDIO_IDLE,
+  APP_AUDIO_PLAYING,
+  APP_AUDIO_ERROR
 } app_audio_state_t;
 
 void app_audio_init(void);

@@ -17,7 +17,28 @@
         }
       ],
       "serverInterface": "SWD",
-      "serverInterfaceFrequency": "1000",
+      "serverInterfaceFrequency": "8000",
+      "serverReset": "Software system reset",
+      "serverVerify": true,
+      "runEntry": "main"
+    },
+    {
+      "name": "Fallguard: Release (ST-LINK)",
+      "type": "stlinkgdbtarget",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "deviceName": "STM32F103RCT6",
+      "deviceCore": "Cortex-M3",
+      "preLaunchTask": "Fallguard: Build Release",
+      "preBuild": "",
+      "imagesAndSymbols": [
+        {
+          "imageFileName": "${workspaceFolder}/build/Release/fallguard.elf",
+          "symbolFileName": "${workspaceFolder}/build/Release/fallguard.elf"
+        }
+      ],
+      "serverInterface": "SWD",
+      "serverInterfaceFrequency": "8000",
       "serverReset": "Software system reset",
       "serverVerify": true,
       "runEntry": "main"
