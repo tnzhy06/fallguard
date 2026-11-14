@@ -32,7 +32,10 @@ void MX_RTC_Init(void)
 {
 
   /* USER CODE BEGIN RTC_Init 0 */
-
+  /* The BSP owns optional RTC startup. Return before CubeMX's fatal-error path;
+   * this user block is preserved when the peripheral code is regenerated. */
+  BSP_RTC_InitHardware();
+  return;
   /* USER CODE END RTC_Init 0 */
 
   RTC_TimeTypeDef sTime = {0};
@@ -46,17 +49,14 @@ void MX_RTC_Init(void)
   */
   hrtc.Instance = RTC;
   hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
-  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_ALARM;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
   if (HAL_RTC_Init(&hrtc) != HAL_OK)
   {
     Error_Handler();
   }
 
   /* USER CODE BEGIN Check_RTC_BKUP */
-  /* Preserve the counter: BSP keeps the F1 calendar epoch in backup registers.
-   */
-  if (BSP_RTC_HasBackup())
-    return;
+  /* Backup preservation is handled by BSP_RTC_InitHardware above. */
   /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date

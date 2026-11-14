@@ -16,6 +16,11 @@ typedef struct
     uint8_t valid, restored, error;
 } bsp_rtc_data_t;
 
+/* Boot hooks used by MX_RTC_Init. A clock/init failure leaves RTC unavailable. */
+uint8_t BSP_RTC_ConfigureClock(void);
+void BSP_RTC_InitHardware(void);
+void BSP_RTC_SetHardwareReady(uint8_t ready);
+uint8_t BSP_RTC_IsHardwareReady(void);
 uint8_t BSP_RTC_HasBackup(void);
 void BSP_RTC_Init(void);
 void BSP_RTC_Poll(void);

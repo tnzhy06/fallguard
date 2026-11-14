@@ -172,18 +172,20 @@ uint8_t mpu6050_enable_data_ready(I2C_HandleTypeDef *i2c)
     return 1U;
 }
 
-uint8_t mpu6050_read_all(I2C_HandleTypeDef *i2c, mpu6050_data_t *data)
+HAL_StatusTypeDef mpu6050_start_read(I2C_HandleTypeDef *i2c, uint8_t *bytes)
 {
-    uint8_t bytes[15];
+    /* Avoid the HAL IT entry point's polling wait for an already-busy bus.
+       I2C1 is owned exclusively by this BSP and is started from the main loop. */
+    if (__HAL_I2C_GET_FLAG(i2c, I2C_FLAG_BUSY) != RESET)
+        return HAL_BUSY;
+    return HAL_I2C_Mem_Read_IT(i2c, MPU6050_ADDRESS, MPU6050_REG_INT_STATUS,
+                              I2C_MEMADD_SIZE_8BIT, bytes, MPU6050_FRAME_BYTES);
+}
+
+uint8_t mpu6050_decode_frame(const uint8_t *bytes, mpu6050_data_t *data)
+{
     int16_t temperature;
     unsigned int i;
-    HAL_StatusTypeDef status;
-
-    /* Reading INT_STATUS releases the latch. The remaining 14 bytes are sensor data. */
-    status = HAL_I2C_Mem_Read(i2c, MPU6050_ADDRESS, MPU6050_REG_INT_STATUS,
-                              I2C_MEMADD_SIZE_8BIT, bytes, sizeof(bytes), MPU6050_TIMEOUT_MS);
-    if (i2c_ok(i2c, status, 'R', MPU6050_REG_INT_STATUS) == 0U)
-        return 2U;
     if ((bytes[0] & MPU6050_INT_DATA_READY) == 0U)
         return 0U;
 

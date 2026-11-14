@@ -2,10 +2,33 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Fallguard: Configure Debug",
+      "type": "cmake",
+      "command": "configure",
+      "preset": "Debug",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "生成 Debug 构建系统和编译数据库，不编译固件。"
+    },
+    {
+      "label": "Fallguard: Configure Release",
+      "type": "cmake",
+      "command": "configure",
+      "preset": "Release",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "生成 Release 构建系统和编译数据库，不编译固件。"
+    },
+    {
       "label": "Fallguard: Build Debug",
       "type": "cmake",
       "command": "build",
       "preset": "Debug",
+      "dependsOn": "Fallguard: Configure Debug",
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -13,18 +36,119 @@
         "kind": "build",
         "isDefault": true
       },
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": {
+        "owner": "fallguard-gcc",
+        "source": "arm-gcc",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+)(?::(\\d+))?:\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "detail": "先配置再增量构建 Debug，供源码调试使用。"
     },
     {
       "label": "Fallguard: Build Release",
       "type": "cmake",
       "command": "build",
       "preset": "Release",
+      "dependsOn": "Fallguard: Configure Release",
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": {
+        "owner": "fallguard-gcc",
+        "source": "arm-gcc",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+)(?::(\\d+))?:\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "detail": "先配置再增量构建 Release，供烧录和运行演示使用。"
+    },
+    {
+      "label": "Fallguard: Clean Debug",
+      "type": "cmake",
+      "command": "clean",
+      "preset": "Debug",
+      "dependsOn": "Fallguard: Configure Debug",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "清除 Debug 构建目标，保留 CMake 配置和编译数据库。"
+    },
+    {
+      "label": "Fallguard: Clean Release",
+      "type": "cmake",
+      "command": "clean",
+      "preset": "Release",
+      "dependsOn": "Fallguard: Configure Release",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "清除 Release 构建目标，保留 CMake 配置和编译数据库。"
+    },
+    {
+      "label": "Fallguard: Rebuild Debug",
+      "type": "cmake",
+      "command": "cleanRebuild",
+      "preset": "Debug",
+      "dependsOn": "Fallguard: Configure Debug",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": {
+        "owner": "fallguard-gcc",
+        "source": "arm-gcc",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+)(?::(\\d+))?:\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "detail": "先配置，再依次清理并完整构建 Debug。"
+    },
+    {
+      "label": "Fallguard: Rebuild Release",
+      "type": "cmake",
+      "command": "cleanRebuild",
+      "preset": "Release",
+      "dependsOn": "Fallguard: Configure Release",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": {
+        "owner": "fallguard-gcc",
+        "source": "arm-gcc",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+)(?::(\\d+))?:\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "detail": "先配置，再依次清理并完整构建 Release。"
     }
   ]
 }

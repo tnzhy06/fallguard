@@ -1,6 +1,6 @@
 #include "bsp_lcd.h"
 #include "app_config.h"
-#include "noto_sans_sc.h"
+#include "harmonyos_sans.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -106,16 +106,28 @@ static uint32_t next_code(const char **text)
     return code;
 }
 
-static const app_ui_glyph_t *find_glyph(uint32_t code)
+static const ui_font_bitmap_t *find_glyph(uint32_t code, uint8_t size)
 {
-    unsigned lo = 0U, hi = sizeof(ui_glyphs) / sizeof(ui_glyphs[0]);
+    const app_ui_glyph_t *table;
+    unsigned count;
+    if (size == 14U) {
+        table = ui_glyphs14;
+        count = sizeof(ui_glyphs14) / sizeof(ui_glyphs14[0]);
+    } else if (size == 16U) {
+        table = ui_glyphs16;
+        count = sizeof(ui_glyphs16) / sizeof(ui_glyphs16[0]);
+    } else {
+        table = ui_glyphs20;
+        count = sizeof(ui_glyphs20) / sizeof(ui_glyphs20[0]);
+    }
+    unsigned lo = 0U, hi = count;
     while (lo < hi)
     {
         unsigned mid = lo + (hi - lo) / 2U;
-        if (ui_glyphs[mid].code < code) lo = mid + 1U;
+        if (table[mid].code < code) lo = mid + 1U;
         else hi = mid;
     }
-    return (lo < sizeof(ui_glyphs) / sizeof(ui_glyphs[0]) && ui_glyphs[lo].code == code) ? &ui_glyphs[lo] : 0;
+    return (lo < count && table[lo].code == code) ? &table[lo].bitmap : 0;
 }
 
 static uint16_t blend(uint16_t fg, uint16_t bg, unsigned a)
@@ -144,65 +156,120 @@ static void draw_mask(int x, int y, const uint8_t *bits, int w, int h, int strid
     }
 }
 
-static const app_ui_ascii_glyph_t *ascii_glyph(uint32_t code)
+uint8_t BSP_LCD_TextHeight(uint8_t size)
 {
-    if (code < 32U || code > 126U) code = '?';
-    return &ui_ascii_glyphs[code - 32U];
+    switch (size)
+    {
+    case 14U: return UI_FONT14_HEIGHT;
+    case 16U: return UI_FONT16_HEIGHT;
+    case 20U: return UI_FONT20_HEIGHT;
+    case 40U: return UI_FONT40_HEIGHT;
+    default: return 0U;
+    }
+}
+
+static const ui_font_bitmap_t *glyph_bitmap(uint32_t code, uint8_t size, int *offset_y)
+{
+    *offset_y = 0;
+    if (size == 40U)
+    {
+        for (unsigned i = 0U; i < sizeof(ui_large_glyphs) / sizeof(ui_large_glyphs[0]); ++i)
+            if (ui_large_glyphs[i].code == code) return &ui_large_glyphs[i].bitmap;
+        *offset_y = (UI_FONT40_HEIGHT - UI_FONT20_HEIGHT) / 2;
+    }
+    const ui_font_bitmap_t *glyph = find_glyph(code, size);
+    if (!glyph) {
+        glyph = find_glyph('?', size);
+    }
+    return glyph;
+}
+
+static int span_width(const char *text, const char *end, uint8_t size)
+{
+    int width = 0, offset_y;
+    while (*text && (!end || text < end))
+        width += glyph_bitmap(next_code(&text), size, &offset_y)->advance;
+    return width;
+}
+
+static void draw_span(int x, int y, const char *text, const char *end,
+                       uint8_t size, uint8_t scale, uint16_t color, uint16_t background)
+{
+    int width = span_width(text, end, size) * scale;
+    int height = BSP_LCD_TextHeight(size) * scale;
+    BSP_LCD_Rect(x, y, width, height, background);
+    while (*text && (!end || text < end))
+    {
+        int offset_y;
+        const ui_font_bitmap_t *glyph = glyph_bitmap(next_code(&text), size, &offset_y);
+        if (glyph->width && glyph->height)
+            draw_mask(x + glyph->x * scale, y + (glyph->y + offset_y) * scale,
+                       ui_font_pixels + glyph->offset, glyph->width, glyph->height,
+                       glyph->width, scale, color, background, 1U);
+        x += glyph->advance * scale;
+    }
 }
 
 void BSP_LCD_Text(int x, int y, const char *text, uint8_t size, uint8_t scale,
                   uint16_t color, uint16_t background)
 {
-    if (!text || !scale || (size != 16U && size != 20U && size != 40U)) return;
-    while (*text && x < (int)ST7789_WIDTH)
-    {
-        uint32_t code = next_code(&text);
-        int w = size, h = size, stride = size;
-        const uint8_t *bits = 0;
-        if (code <= 127U)
-        {
-            const app_ui_ascii_glyph_t *glyph = ascii_glyph(code);
-            h = stride = size == 16U ? 16 : 20;
-            w = size == 16U ? glyph->advance16 : glyph->advance20;
-            bits = size == 16U ? glyph->px16 : glyph->px20;
-        }
-        else if (size == 40U)
-        {
-            for (unsigned i = 0; i < sizeof(ui_large_glyphs) / sizeof(ui_large_glyphs[0]); ++i)
-                if (ui_large_glyphs[i].code == code) { bits = ui_large_glyphs[i].pixels; break; }
-        }
-        else
-        {
-            const app_ui_glyph_t *glyph = find_glyph(code);
-            if (glyph) bits = size == 20U ? glyph->px20 : glyph->px16;
-        }
-        draw_mask(x, y + (size - h) * scale / 2, bits, w, h, stride, scale, color, background, 0U);
-        x += w * scale;
-    }
+    if (text && scale && BSP_LCD_TextHeight(size))
+        draw_span(x, y, text, NULL, size, scale, color, background);
 }
 
 int BSP_LCD_TextWidth(const char *text, uint8_t size, uint8_t scale)
 {
-    int w = 0;
-    if (!text || (size != 16U && size != 20U && size != 40U)) return 0;
-    while (*text)
+    return text && BSP_LCD_TextHeight(size) ? span_width(text, NULL, size) * scale : 0;
+}
+
+static const char *page_end(const char *text, int width, uint8_t size)
+{
+    int used = 0, offset_y;
+    const char *end = text;
+    while (*end)
     {
-        uint32_t code = next_code(&text);
-        const app_ui_ascii_glyph_t *glyph = ascii_glyph(code);
-        w += code > 127U ? size : (size == 16U ? glyph->advance16 : glyph->advance20);
+        const char *next = end;
+        int advance = glyph_bitmap(next_code(&next), size, &offset_y)->advance;
+        if (used + advance > width) break;
+        used += advance;
+        end = next;
     }
-    return w * scale;
+    return end;
+}
+
+uint16_t BSP_LCD_TextPage(int x, int y, int width, const char *text, uint8_t size,
+                           uint32_t page, uint16_t color, uint16_t background)
+{
+    if (!text || width <= 0 || !BSP_LCD_TextHeight(size)) return 0U;
+    uint16_t pages = 0U;
+    const char *start = text;
+    while (*start)
+    {
+        const char *end = page_end(start, width, size);
+        if (end == start) return 0U;
+        ++pages;
+        start = end;
+    }
+    if (!pages) return 0U;
+    page %= pages;
+    start = text;
+    while (page--) start = page_end(start, width, size);
+    draw_span(x, y, start, page_end(start, width, size), size, 1U, color, background);
+    return pages;
 }
 
 void BSP_LCD_Clock(int x, int y, const char *text, uint16_t color, uint16_t background)
 {
     static const char clock_chars[] = UI_CLOCK_CHARS;
+    if (!text) return;
+    BSP_LCD_Rect(x, y, (int)strlen(text) * UI_CLOCK_WIDTH, UI_CLOCK_HEIGHT, background);
     while (text && *text && x < (int)ST7789_WIDTH)
     {
-        const char *glyph = strchr(clock_chars, *text++);
-        unsigned index = glyph ? (unsigned)(glyph - clock_chars) : sizeof(clock_chars) - 2U;
-        draw_mask(x, y, ui_clock_glyphs[index], UI_CLOCK_WIDTH, UI_CLOCK_HEIGHT,
-                  UI_CLOCK_WIDTH, 1U, color, background, 0U);
+        const char *match = strchr(clock_chars, *text++);
+        unsigned index = match ? (unsigned)(match - clock_chars) : sizeof(clock_chars) - 2U;
+        const ui_font_bitmap_t *glyph = &ui_clock_glyphs[index];
+        draw_mask(x + glyph->x, y + glyph->y, ui_font_pixels + glyph->offset,
+                  glyph->width, glyph->height, glyph->width, 1U, color, background, 1U);
         x += UI_CLOCK_WIDTH;
     }
 }
@@ -210,5 +277,7 @@ void BSP_LCD_Clock(int x, int y, const char *text, uint16_t color, uint16_t back
 void BSP_LCD_Icon(int x, int y, const uint8_t *mask, uint8_t size, uint16_t color, uint16_t background)
 {
     if (mask && size)
+    {
         draw_mask(x, y, mask, size, size, size, 1U, color, background, 1U);
+    }
 }

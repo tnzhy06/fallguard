@@ -8,6 +8,66 @@
 
 static bsp_rtc_data_t data;
 static uint32_t base_utc;
+static uint8_t hardware_ready;
+
+void BSP_RTC_SetHardwareReady(uint8_t ready)
+{
+    hardware_ready = ready ? 1U : 0U;
+    if (!hardware_ready)
+    {
+        /* This only invalidates RAM state; backup registers remain untouched. */
+        memset(&data, 0, sizeof(data));
+        data.error = 1U;
+    }
+    else
+        data.error = 0U;
+}
+
+uint8_t BSP_RTC_IsHardwareReady(void)
+{
+    return hardware_ready && (__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET);
+}
+
+uint8_t BSP_RTC_ConfigureClock(void)
+{
+    RCC_OscInitTypeDef oscillator = {0};
+    RCC_PeriphCLKInitTypeDef clock = {0};
+
+    BSP_RTC_SetHardwareReady(0U);
+    oscillator.OscillatorType = RCC_OSCILLATORTYPE_LSE;
+    oscillator.LSEState = RCC_LSE_ON;
+    oscillator.PLL.PLLState = RCC_PLL_NONE;
+    /* Keep the HAL startup deadline (LSE_STARTUP_TIMEOUT, normally 5 seconds).
+       Do not combine this optional oscillator with HSE/PLL initialization. */
+    if (HAL_RCC_OscConfig(&oscillator) != HAL_OK)
+        return 0U;
+    /* Never change the RTC source/reset the backup domain after an LSE failure. */
+    clock.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    clock.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    return HAL_RCCEx_PeriphCLKConfig(&clock) == HAL_OK;
+}
+
+void BSP_RTC_InitHardware(void)
+{
+    RTC_TimeTypeDef time = {0};
+    RTC_DateTypeDef date = {0};
+    if (!BSP_RTC_ConfigureClock())
+        return;
+    hrtc.Instance = RTC;
+    hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+    hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
+    if (HAL_RTC_Init(&hrtc) != HAL_OK)
+        return;
+    BSP_RTC_SetHardwareReady(1U);
+    if (BSP_RTC_HasBackup())
+        return;
+    date.WeekDay = RTC_WEEKDAY_MONDAY;
+    date.Month = RTC_MONTH_JANUARY;
+    date.Date = 1U;
+    if (HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BCD) != HAL_OK ||
+        HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BCD) != HAL_OK)
+        BSP_RTC_SetHardwareReady(0U);
+}
 
 static uint8_t month_days(uint16_t year, uint8_t month)
 {
@@ -47,6 +107,8 @@ static uint32_t read_counter(void)
 
 uint8_t BSP_RTC_HasBackup(void)
 {
+    if (!BSP_RTC_IsHardwareReady())
+        return 0U;
     uint32_t low = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
     uint32_t high = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
     uint32_t base = (high << 16U) | low;
@@ -62,6 +124,11 @@ uint8_t BSP_RTC_HasBackup(void)
 void BSP_RTC_Init(void)
 {
     memset(&data, 0, sizeof(data));
+    if (!BSP_RTC_IsHardwareReady())
+    {
+        data.error = 1U;
+        return;
+    }
     if (BSP_RTC_HasBackup())
     {
         base_utc = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2) |
@@ -78,6 +145,11 @@ void BSP_RTC_Poll(void)
     uint16_t year = 1970U;
     uint8_t month = 1U;
 
+    if (!BSP_RTC_IsHardwareReady())
+    {
+        BSP_RTC_SetHardwareReady(0U);
+        return;
+    }
     if (!data.valid)
         return;
     elapsed = read_counter();
@@ -121,7 +193,12 @@ uint8_t BSP_RTC_Set(const bsp_rtc_datetime_t *local)
     uint32_t utc = BSP_RTC_ToUnixUtc(local);
     RTC_TimeTypeDef time = {0};
 
-    if (!utc || (__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) == RESET))
+    if (!BSP_RTC_IsHardwareReady())
+    {
+        BSP_RTC_SetHardwareReady(0U);
+        return 0U;
+    }
+    if (!utc)
         return 0U;
     time.Hours = local->hour;
     time.Minutes = local->minute;

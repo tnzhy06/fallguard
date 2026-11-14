@@ -206,7 +206,7 @@ static uint8_t fall_event_log_poll(void) {
 void app_init(void) {
   BSP_LED_Init();
   BSP_KEY_Init();
-  app_ui_init();
+  /* Display/boot log are initialized by main before the optional RTC startup. */
   BSP_GPS_Init();
   BSP_MPU6050_Init();
   app_fall_init();
@@ -247,6 +247,8 @@ void app_run(void) {
   app_report_poll();
   app_audio_poll(app_fall_get_data()->state == APP_FALL_ALARM);
   app_ui_set_alarm(app_fall_get_data()->state == APP_FALL_ALARM);
+  /* Submit the next display band before formatting diagnostic logs. */
+  app_ui_poll();
   if (!fall_event_log_poll() && !mpu_display_log_poll())
     diagnostic_poll();
   BSP_LED_SetMode(
@@ -254,5 +256,4 @@ void app_run(void) {
           ? BSP_LED_ALARM
           : (BSP_ESP_IsOnline() ? BSP_LED_NORMAL : BSP_LED_OFFLINE));
   BSP_LED_Poll();
-  app_ui_poll();
 }

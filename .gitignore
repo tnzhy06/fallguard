@@ -16,6 +16,7 @@
 *.map
 *.d
 *.dep
+*.su
 *.crf
 *.lst
 *.LST
@@ -56,6 +57,6 @@ Thumbs.db
 *.M51
 *.m51
 
-# Python font generation and host verification
+# Python resource generation
 __pycache__/
 *.py[cod]

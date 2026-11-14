@@ -14,6 +14,30 @@ static uint8_t start_phase;
 static uint16_t calibration_samples;
 static int32_t gyro_sum[3];
 static double gyro_bias[3];
+static bsp_mpu6050_stats_t stats;
+typedef enum { RX_IDLE, RX_ACTIVE, RX_DONE, RX_FAILED } rx_state_t;
+static volatile rx_state_t rx_state;
+static volatile uint32_t rx_finished_tick, rx_error;
+static uint8_t rx_bytes[MPU6050_FRAME_BYTES];
+static uint32_t rx_start_tick, rx_sample_tick, rx_irq, busy_since;
+static uint8_t busy_waiting;
+
+static void start_sensor(void);
+
+static void cancel_read(void)
+{
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    rx_state = RX_IDLE;
+    /* Stop the peripheral before reusing its buffer or switching pins to GPIO.
+       Unlike an asynchronous abort, no old transaction can complete after reinit. */
+    __HAL_I2C_DISABLE_IT(&hi2c1, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR);
+    __HAL_I2C_DISABLE(&hi2c1);
+    HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);
+    HAL_NVIC_ClearPendingIRQ(I2C1_ER_IRQn);
+    __set_PRIMASK(primask);
+    busy_waiting = 0U;
+}
 
 typedef enum
 {
@@ -31,6 +55,7 @@ static uint8_t recovery_pulses;
 static void failed(void)
 {
     irq_armed = 0U;
+    cancel_read();
     state = BSP_MPU6050_ERROR;
     sample.samples = 0U;
     recovery_step = RECOVERY_WAIT;
@@ -41,7 +66,7 @@ static void finish_recovery(uint8_t bus_free)
 {
     /* HAL MSP restores PB6/PB7 to AF open-drain after the GPIO bus-clear sequence. */
     if ((HAL_I2C_Init(&hi2c1) == HAL_OK) && bus_free)
-        BSP_MPU6050_Init();
+        start_sensor();
     else
         failed();
 }
@@ -129,7 +154,14 @@ static int32_t rounded(double value)
 
 void BSP_MPU6050_Init(void)
 {
+    memset(&stats, 0, sizeof(stats));
+    start_sensor();
+}
+
+static void start_sensor(void)
+{
     irq_armed = 0U;
+    cancel_read();
     data_ready_irq = data_ready_tick = handled_irq = 0U;
     state = BSP_MPU6050_STARTING;
     phase_tick = HAL_GetTick();
@@ -153,10 +185,93 @@ void BSP_MPU6050_DataReadyIRQ(void)
     }
 }
 
+void BSP_MPU6050_ReadCompleteIRQ(void)
+{
+    if (rx_state == RX_ACTIVE)
+    {
+        rx_finished_tick = HAL_GetTick();
+        __DMB();
+        rx_state = RX_DONE;
+    }
+}
+
+void BSP_MPU6050_ReadErrorIRQ(uint32_t error)
+{
+    if (rx_state == RX_ACTIVE || rx_state == RX_DONE)
+    {
+        rx_error = error;
+        __DMB();
+        rx_state = RX_FAILED;
+    }
+}
+
+/* Only the main loop starts transactions. Failed starts leave their IRQ pending. */
+static void schedule_read(uint32_t now)
+{
+    uint32_t primask, irq, irq_tick;
+    /* Snapshot the ISR-owned pair together. An IRQ arriving during I2C remains pending. */
+    primask = __get_PRIMASK();
+    __disable_irq();
+    irq = data_ready_irq;
+    irq_tick = data_ready_tick;
+    __set_PRIMASK(primask);
+    now = HAL_GetTick();
+    if (irq == handled_irq)
+    {
+        if ((uint32_t)(now - last_data_tick) >= BSP_MPU6050_SAMPLE_TIMEOUT_MS)
+            failed();
+        return;
+    }
+    if ((uint32_t)(now - irq_tick) >= BSP_MPU6050_SAMPLE_TIMEOUT_MS)
+    {
+        failed();
+        return;
+    }
+    {
+        HAL_StatusTypeDef status;
+        if (!busy_waiting)
+        {
+            busy_waiting = 1U;
+            busy_since = now;
+        }
+        if ((uint32_t)(now - busy_since) >= BSP_MPU6050_READ_TIMEOUT_MS)
+        {
+            ++stats.timeouts;
+            failed();
+            return;
+        }
+        rx_start_tick = now;
+        rx_sample_tick = irq_tick;
+        rx_irq = irq;
+        rx_state = RX_ACTIVE; /* A very fast completion may precede HAL's return. */
+        status = mpu6050_start_read(&hi2c1, rx_bytes);
+        if (status == HAL_OK)
+        {
+            ++stats.reads_started;
+            stats.coalesced_irqs += (uint32_t)(irq - handled_irq) - 1U;
+            handled_irq = irq;
+            busy_waiting = 0U;
+        }
+        else
+        {
+            rx_state = RX_IDLE;
+            if (status == HAL_BUSY)
+                ++stats.busy_retries; /* Keep the notification for a later poll. */
+            else
+            {
+                stats.last_error = HAL_I2C_GetError(&hi2c1);
+                ++stats.errors;
+                failed();
+            }
+        }
+        return;
+    }
+}
+
 uint8_t BSP_MPU6050_Poll(void)
 {
     uint32_t now = HAL_GetTick();
-    uint32_t primask, irq, irq_tick;
+    uint32_t irq, irq_tick;
     uint8_t result;
     unsigned int i;
 
@@ -202,31 +317,48 @@ uint8_t BSP_MPU6050_Poll(void)
         return 0U;
     }
 
-    /* Snapshot the ISR-owned pair together. An IRQ arriving during I2C remains pending. */
-    primask = __get_PRIMASK();
-    __disable_irq();
-    irq = data_ready_irq;
-    irq_tick = data_ready_tick;
-    __set_PRIMASK(primask);
-    now = HAL_GetTick();
-    if (irq == handled_irq)
+    if (rx_state == RX_ACTIVE)
     {
-        if ((uint32_t)(now - last_data_tick) >= BSP_MPU6050_SAMPLE_TIMEOUT_MS)
+        if ((uint32_t)(now - rx_start_tick) >= BSP_MPU6050_READ_TIMEOUT_MS)
+        {
+            ++stats.timeouts;
             failed();
+        }
         return 0U;
     }
-    handled_irq = irq;
-    if ((uint32_t)(now - irq_tick) >= BSP_MPU6050_SAMPLE_TIMEOUT_MS)
+    if (rx_state == RX_FAILED)
     {
+        __DMB();
+        stats.last_error = rx_error;
+        ++stats.errors;
         failed();
         return 0U;
     }
-    result = mpu6050_read_all(&hi2c1, &data);
-    if (result == 2U)
+    if (rx_state == RX_DONE)
     {
-        failed();
+        uint32_t elapsed;
+        __DMB();
+        elapsed = (uint32_t)(rx_finished_tick - rx_start_tick);
+        if (elapsed > stats.max_read_ms)
+            stats.max_read_ms = elapsed;
+        if (elapsed >= BSP_MPU6050_READ_TIMEOUT_MS)
+        {
+            ++stats.timeouts;
+            failed();
+            return 0U;
+        }
+        ++stats.reads_completed;
+        rx_state = RX_IDLE;
+        irq = rx_irq;
+        irq_tick = rx_sample_tick;
+    }
+    else
+    {
+        schedule_read(now);
         return 0U;
     }
+
+    result = mpu6050_decode_frame(rx_bytes, &data);
     if (result == 0U)
     {
         if ((uint32_t)(HAL_GetTick() - last_data_tick) >= BSP_MPU6050_SAMPLE_TIMEOUT_MS)
@@ -279,4 +411,9 @@ bsp_mpu6050_state_t BSP_MPU6050_GetState(void)
 const bsp_mpu6050_sample_t *BSP_MPU6050_GetSample(void)
 {
     return &sample;
+}
+
+const bsp_mpu6050_stats_t *BSP_MPU6050_GetStats(void)
+{
+    return &stats;
 }

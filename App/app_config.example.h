@@ -33,6 +33,8 @@
  * 校准数量按有效 DATA_RDY 中断样本计数，超时用于检测 INT 缺失或采样停止。 */
 #define MPU6050_I2C_ADDRESS 0x68U
 #define MPU6050_TIMEOUT_MS 5U
+/* Deadline for an asynchronous sample read or waiting for an idle bus. */
+#define BSP_MPU6050_READ_TIMEOUT_MS 5U
 #define MPU6050_SAMPLE_RATE_DIV 9U
 #define MPU6050_DLPF_CFG 3U
 #define MPU6050_KALMAN_Q_ANGLE 0.001
@@ -106,8 +108,15 @@
 #define ST7789_INVERSION 1U
 #define ST7789_USE_CS 1U
 #define ST7789_BL_ACTIVE 1U
-#define LCD_BAND_ROWS 8U
+#define LCD_BAND_ROWS 16U
 #define APP_UI_REFRESH_MS 200U
+/* Long fields page at complete character boundaries after fitting the font. */
+#define APP_UI_TEXT_PAGE_MS 2000U
+/* Visible boot log, bounded display wait, sensor deadline and final hold. */
+#define APP_BOOT_LOG_STEP_MS 180U
+#define APP_BOOT_DISPLAY_TIMEOUT_MS 1800U
+#define APP_BOOT_SENSOR_TIMEOUT_MS 8000U
+#define APP_BOOT_COMPLETE_HOLD_MS 700U
 #define LCD_COMMAND_TIMEOUT_MS 2U
 #define LCD_TRANSFER_TIMEOUT_MS 30U
 #define LCD_RETRY_MS 2000U
@@ -165,6 +174,10 @@
     BSP_MPU6050_SCL_TIMEOUT_MS < BSP_MPU6050_BUS_EDGE_MS
 #error "Invalid MPU6050 interrupt or recovery timing"
 #endif
+#if BSP_MPU6050_READ_TIMEOUT_MS < 1U || \
+    BSP_MPU6050_READ_TIMEOUT_MS > BSP_MPU6050_SAMPLE_TIMEOUT_MS
+#error "Invalid MPU6050 asynchronous read timeout"
+#endif
 #if AUDIO_HALF_FRAMES < 1U || AUDIO_HALF_FRAMES > 16383U ||                    \
     APP_AUDIO_REPEAT_GAP_MS > 268435455U
 #error "Audio DMA buffer or silent interval is too large"
@@ -216,6 +229,13 @@
 #elif (ST7789_HEIGHT % LCD_BAND_ROWS) != 0U ||                                 \
     (ST7789_WIDTH * LCD_BAND_ROWS * 2U) > 65535U
 #error "LCD strips must tile the panel and fit the HAL DMA transfer length"
+#endif
+#if APP_UI_TEXT_PAGE_MS < 1U
+#error "Text page interval must be nonzero"
+#endif
+#if APP_BOOT_LOG_STEP_MS < 1U || APP_BOOT_DISPLAY_TIMEOUT_MS < APP_BOOT_LOG_STEP_MS || \
+    APP_BOOT_SENSOR_TIMEOUT_MS < 1U || APP_BOOT_COMPLETE_HOLD_MS < 1U
+#error "Invalid boot display timing"
 #endif
 #if DEBUG_TX_BUFFER_SIZE < 2U || DEBUG_TX_BUFFER_SIZE > 65535U ||              \
     DEBUG_TX_CHUNK_SIZE < 1U || DEBUG_TX_CHUNK_SIZE >= DEBUG_TX_BUFFER_SIZE || \

@@ -76,7 +76,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     BSP
     App
     ThirdParty/FloydFish_ST7789
-    ThirdParty/NotoSansSC
+    ThirdParty/HarmonyOS_Sans
     ThirdParty/leech001_mpu6050
     ThirdParty/lwgps
     ThirdParty/lwgps/src/include

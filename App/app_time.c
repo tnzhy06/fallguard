@@ -26,7 +26,10 @@ void app_time_poll(void) {
   esp = BSP_ESP_GetData();
   if (esp->time_sequence != last_sequence) {
     last_sequence = esp->time_sequence;
-    if (BSP_RTC_Set(&esp->time))
+    if (!BSP_RTC_IsHardwareReady())
+      DEBUG_PRINT(DEBUG_LOG_ERRORS || DEBUG_LOG_TIME,
+                  "[RTC] SNTP received but RTC unavailable; time remains invalid\r\n");
+    else if (BSP_RTC_Set(&esp->time))
       DEBUG_PRINT(DEBUG_LOG_TIME, "[RTC] SNTP applied, local=UTC%+d\r\n",
                   APP_TIMEZONE_HOURS);
     else

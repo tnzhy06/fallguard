@@ -30,10 +30,12 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.h"
+#include "app_ui.h"
 #include "bsp_esp.h"
 #include "bsp_gps.h"
 #include "bsp_log.h"
 #include "bsp_mpu6050.h"
+#include "bsp_rtc.h"
 #include <errno.h>
 #include <stdio.h>
 
@@ -74,6 +76,34 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* Keep the generated main clock tree, but reserve the optional LSE/RTC for the
+ * recoverable RTC initializer. These adapters survive CubeMX regeneration. */
+static HAL_StatusTypeDef boot_osc_config(RCC_OscInitTypeDef *oscillator) {
+  oscillator->OscillatorType &= ~RCC_OSCILLATORTYPE_LSE;
+  return HAL_RCC_OscConfig(oscillator);
+}
+
+static HAL_StatusTypeDef boot_periph_clock_config(RCC_PeriphCLKInitTypeDef *clock) {
+  clock->PeriphClockSelection &= ~RCC_PERIPHCLK_RTC;
+  return clock->PeriphClockSelection ? HAL_RCCEx_PeriphCLKConfig(clock) : HAL_OK;
+}
+
+#define HAL_RCC_OscConfig boot_osc_config
+#define HAL_RCCEx_PeriphCLKConfig boot_periph_clock_config
+
+/* Only used before application startup. IRQs remain enabled and log TX is serviced.
+ * Bound the wait so a failed display never prevents the application from booting. */
+static void boot_log_step(const char *message, app_ui_boot_level_t level) {
+  uint32_t start = HAL_GetTick();
+  app_ui_boot_log(message, level);
+  do {
+    app_ui_poll();
+    BSP_LOG_Poll();
+  } while ((uint32_t)(HAL_GetTick() - start) < APP_BOOT_DISPLAY_TIMEOUT_MS &&
+           ((uint32_t)(HAL_GetTick() - start) < APP_BOOT_LOG_STEP_MS ||
+            app_ui_frame_pending()));
+}
+
 static void gps_receive_start(void) {
   HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart2, &gps_rx_byte, 1U);
 
@@ -117,7 +147,9 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  /* Order startup below so the boot log is visible before optional RTC startup.
+   * Skip CubeMX's automatic call list without changing its generated functions. */
+  goto boot_peripherals;
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -132,13 +164,38 @@ int main(void)
   MX_I2S2_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+boot_peripherals:
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_SPI1_Init();
+  MX_USART1_UART_Init();
   BSP_LOG_Init();
   setvbuf(stdout, NULL, _IONBF, 0);
+  app_ui_init();
+  boot_log_step("主时钟已就绪", APP_UI_BOOT_OK);
+  boot_log_step("显示接口已就绪", APP_UI_BOOT_OK);
+  boot_log_step("RTC 时钟启动中", APP_UI_BOOT_WAIT);
+  MX_RTC_Init();
+  boot_log_step(BSP_RTC_IsHardwareReady() ? "RTC 时钟已就绪" : "RTC 故障 继续启动",
+                BSP_RTC_IsHardwareReady() ? APP_UI_BOOT_OK : APP_UI_BOOT_WARN);
+  MX_I2C1_Init();
+  boot_log_step("姿态总线已就绪", APP_UI_BOOT_OK);
+  MX_TIM2_Init();
+  boot_log_step("计时接口已就绪", APP_UI_BOOT_OK);
+  MX_USART2_UART_Init();
+  boot_log_step("定位串口已就绪", APP_UI_BOOT_OK);
+  MX_USART3_UART_Init();
+  boot_log_step("网络串口已就绪", APP_UI_BOOT_OK);
+  MX_I2S2_Init();
+  boot_log_step("音频接口已就绪", APP_UI_BOOT_OK);
 
   DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n[BOOT] fallguard\r\n");
   DEBUG_PRINT(DEBUG_LOG_BOOT, "[BOOT] HCLK=%lu Hz LSE_READY=%lu\r\n",
               (unsigned long)HAL_RCC_GetHCLKFreq(),
               (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
+  if (!BSP_RTC_IsHardwareReady())
+    DEBUG_PRINT(DEBUG_LOG_ERRORS,
+                "[RTC] LSE/RTC unavailable; time invalid, local functions continue\r\n");
 
   if (HAL_TIM_Base_Start(&htim2) != HAL_OK) {
     DEBUG_PRINT(DEBUG_LOG_ERRORS, "[TIM] TIM2 start failed\r\n");
@@ -155,6 +212,7 @@ int main(void)
   gps_rx_retry_tick = HAL_GetTick();
   esp_receive_start();
   esp_rx_retry_tick = HAL_GetTick();
+  app_ui_boot_hardware_done();
   DEBUG_PRINT(DEBUG_LOG_BOOT,
               "[GPS] TX->PA3, USART2 115200 8N1, stale=%lu ms\r\n",
               (unsigned long)GPS_STALE_MS);
@@ -245,6 +303,16 @@ void SystemClock_Config(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == MPU6050_INT_Pin)
     BSP_MPU6050_DataReadyIRQ();
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
+  if (hi2c == &hi2c1)
+    BSP_MPU6050_ReadCompleteIRQ();
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+  if (hi2c == &hi2c1)
+    BSP_MPU6050_ReadErrorIRQ(HAL_I2C_GetError(hi2c));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {

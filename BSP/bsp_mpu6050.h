@@ -26,11 +26,20 @@ typedef struct
     uint32_t irq_count;
 } bsp_mpu6050_sample_t;
 
+typedef struct
+{
+    uint32_t reads_started, reads_completed, errors, timeouts;
+    uint32_t busy_retries, coalesced_irqs, max_read_ms, last_error;
+} bsp_mpu6050_stats_t;
+
 void BSP_MPU6050_Init(void);
-/* EXTI callback only records the event and timestamp. Sensor reads run in Poll. */
+/* IRQ callbacks only publish notifications; processing and recovery run in Poll. */
 void BSP_MPU6050_DataReadyIRQ(void);
+void BSP_MPU6050_ReadCompleteIRQ(void);
+void BSP_MPU6050_ReadErrorIRQ(uint32_t error);
 uint8_t BSP_MPU6050_Poll(void);
 bsp_mpu6050_state_t BSP_MPU6050_GetState(void);
 const bsp_mpu6050_sample_t *BSP_MPU6050_GetSample(void);
+const bsp_mpu6050_stats_t *BSP_MPU6050_GetStats(void);
 
 #endif
