@@ -293,7 +293,8 @@ static const char *network_stage(void) {
   case BSP_ESP_UNSUPPORTED: return "模块固件不支持";
   case BSP_ESP_BACKOFF: case BSP_ESP_RESET_LOW: return "等待重新连接";
   case BSP_ESP_MQTT_CLEAN: case BSP_ESP_MQTT_USER: case BSP_ESP_MQTT_CONFIG:
-  case BSP_ESP_MQTT_CONNECT: case BSP_ESP_MQTT_SUBSCRIBE: return "正在连接云端";
+  case BSP_ESP_MQTT_CONNECT: case BSP_ESP_MQTT_SUBSCRIBE:
+  case BSP_ESP_MQTT_SUBSCRIBE_QUERY: return "正在连接云端";
   default: return "正在连接网络";
   }
 }

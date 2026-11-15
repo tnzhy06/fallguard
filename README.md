@@ -3,7 +3,7 @@
 基于 STM32F103RCT6 的课堂手持跌倒报警演示工程，使用主循环调度，无 RTOS。
 
 - MPU6050 中断采样与异步 I2C 读取，支持故障自动恢复；通过“快速倾倒后保持”的手持动作演示跌倒报警。
-- ATGM336H 定位，ESP-01S 提供 Wi-Fi、SNTP 校时及 MQTT 上报。
+- ATGM336H 定位，ESP-01S 或 Ai-WB2-01S 提供 Wi-Fi、SNTP 校时及 MQTT 上报。
 - ST7789 中文界面与逐行启动日志，统一使用 HarmonyOS Sans；LSE 启动失败时允许降级运行。
 - MAX98357A 播放求助语音，每遍间隔默认 1 秒；串口日志采用非阻塞发送。
 
@@ -16,7 +16,7 @@
 | MPU6050 | SCL PB6、SDA PB7、INT PA1，AD0 接地 |
 | ST7789 | SCK PA5、MOSI PA7、CS PA4、DC PB4、RES PB5、BLK PB1 |
 | ATGM336H | TXD → PA3，RXD → PA2（可选），115200 8N1 |
-| ESP-01S | RXD → PB10、TXD → PB11、EN → PB0，115200 8N1 |
+| ESP-01S / Ai-WB2-01S | RXD → PB10、TXD → PB11、EN → PB0，115200 8N1 |
 | MAX98357A | LRC PB12、BCLK PB13、DIN PB15 |
 | K1 / K2 | PC8 / PC9，按下接地 |
 | LED | PC7，低电平点亮 |
@@ -30,6 +30,14 @@
 使用 STM32CubeIDE for VS Code，或安装 CMake 3.22+、Ninja、ARM GCC 并加入 PATH。
 
 将 [App/app_config.example.h](App/app_config.example.h) 复制为 `App/app_config.h`，填写 Wi-Fi、MQTT 参数。设备编号、检测阈值、采样、语音间隔、日志、界面及上报参数均在此配置。
+
+网络模块通过 `ESP_MODULE_TYPE` 选择，默认 `ESP_MODULE_ESP01S` 使用当前 ESP AT 接口。使用 Ai-WB2-01S 的 Combo V4.18P_3.8.0 指令集时改为：
+
+```c
+#define ESP_MODULE_TYPE ESP_MODULE_AI_WB2_01S
+```
+
+修改后重新编译烧录。两种模块共用 Wi-Fi、MQTT 和时区配置。Combo 使用指定长度的 MQTT 发布传输 JSON，收到连接通知并查询确认订阅成功后进入在线状态。Combo 配置参数中的内嵌双引号会被拒绝；用户名、密码和发布主题限 63 字节，发布负载长度小于 `BSP_ESP_PAYLOAD_SIZE`。普通逗号和反斜杠按 Combo 引用参数格式处理，JSON 内容原样发送。
 
 ```sh
 cmake --preset Debug

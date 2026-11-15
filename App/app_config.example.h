@@ -16,6 +16,11 @@
 #define BSP_ESP_TOPIC_ALARM APP_MQTT_TOPIC_PREFIX "/" APP_DEVICE_ID "/alarm"
 #define BSP_ESP_TOPIC_CMD APP_MQTT_TOPIC_PREFIX "/" APP_DEVICE_ID "/cmd"
 
+/* 网络模块。选择后重新编译烧录，两种模块共用下方连接参数。 */
+#define ESP_MODULE_ESP01S 1U
+#define ESP_MODULE_AI_WB2_01S 2U
+#define ESP_MODULE_TYPE ESP_MODULE_ESP01S
+
 /* Wi-Fi 与 MQTT 连接。空 SSID / HOST 表示尚未配置。 */
 #define ESP_WIFI_SSID ""
 #define ESP_WIFI_PASSWORD ""
@@ -24,6 +29,9 @@
 #define MQTT_USERNAME ""
 #define MQTT_PASSWORD ""
 #define MQTT_KEEPALIVE_SECONDS 120U
+/* Combo 固件的 TCP 心跳间隔及订阅状态查询间隔。 */
+#define MQTT_TCP_KEEPALIVE_SECONDS 10U
+#define ESP_MQTT_QUERY_INTERVAL_MS 250U
 
 /* 课堂手持演示：回正布防 -> 快速倾倒 -> 保持倾倒姿态。角度为度，时间为 ms。 */
 #define APP_FALL_ANGLE_DEG 60
@@ -163,6 +171,13 @@
 #define DEBUG_GPS_PERIOD_MS 250U
 
 /* 编译期校验，防止除零、索引溢出和无效外设参数。 */
+#if ESP_MODULE_TYPE != ESP_MODULE_ESP01S && ESP_MODULE_TYPE != ESP_MODULE_AI_WB2_01S
+#error "Select ESP_MODULE_ESP01S or ESP_MODULE_AI_WB2_01S"
+#endif
+#if MQTT_TCP_KEEPALIVE_SECONDS < 1U || MQTT_TCP_KEEPALIVE_SECONDS > 65535U || \
+    ESP_MQTT_QUERY_INTERVAL_MS < 1U
+#error "Invalid Combo keepalive or subscription query interval"
+#endif
 #if APP_FALL_ANGLE_DEG < 1 || APP_FALL_ANGLE_DEG > 180 || APP_FALL_HOLD_MS < 1U
 #error "Invalid fall detection threshold or hold time"
 #endif

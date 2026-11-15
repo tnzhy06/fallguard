@@ -17,7 +17,7 @@
         }
       ],
       "serverInterface": "SWD",
-      "serverInterfaceFrequency": "Auto",
+      "serverInterfaceFrequency": "8000",
       "serverReset": "Software system reset",
       "serverVerify": true,
       "runEntry": "main"
@@ -38,7 +38,7 @@
         }
       ],
       "serverInterface": "SWD",
-      "serverInterfaceFrequency": "Auto",
+      "serverInterfaceFrequency": "8000",
       "serverReset": "Software system reset",
       "serverVerify": true,
       "runEntry": "main"
