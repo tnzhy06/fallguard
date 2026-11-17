@@ -5,13 +5,38 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* Disabled messages do not evaluate their arguments. */
-#define DEBUG_PRINT(enabled, ...)                                                \
+/* Stable module tags keep every serial prefix consistent. */
+#define LOG_TAG_AUDIO "AUDIO"
+#define LOG_TAG_BOOT "BOOT"
+#define LOG_TAG_ESP "ESP"
+#define LOG_TAG_FALL "FALL"
+#define LOG_TAG_GPS "GPS"
+#define LOG_TAG_KEY "KEY"
+#define LOG_TAG_LCD "LCD"
+#define LOG_TAG_LOG "LOG"
+#define LOG_TAG_MPU "MPU"
+#define LOG_TAG_MQTT "MQTT"
+#define LOG_TAG_REPORT "REPORT"
+#define LOG_TAG_RTC "RTC"
+#define LOG_TAG_TIM "TIM"
+
+/* Disabled messages do not evaluate their arguments. The first variadic
+ * argument must be a string literal so the prefix is joined at compile time. */
+#define LOG_WRITE(enabled, level, module, ...)                                  \
     do {                                                                        \
         if (DEBUG_OUTPUT_ENABLE && (enabled)) {                                  \
-            printf(__VA_ARGS__);                                                \
+            printf("[" level "][" module "] " __VA_ARGS__);                  \
         }                                                                       \
     } while (0)
+
+#define LOG_INFO(enabled, module, ...)                                           \
+    LOG_WRITE(DEBUG_LOG_INFO_ENABLE && (enabled), "I", module, __VA_ARGS__)
+#define LOG_WARN(enabled, module, ...)                                           \
+    LOG_WRITE(DEBUG_LOG_WARN_ENABLE && (enabled), "W", module, __VA_ARGS__)
+#define LOG_ERROR(enabled, module, ...)                                          \
+    LOG_WRITE(DEBUG_LOG_ERROR_ENABLE && (enabled), "E", module, __VA_ARGS__)
+#define LOG_DEBUG(enabled, module, ...)                                          \
+    LOG_WRITE(DEBUG_LOG_DEBUG_ENABLE && (enabled), "D", module, __VA_ARGS__)
 
 typedef struct
 {

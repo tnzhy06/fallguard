@@ -47,7 +47,8 @@ static void record_alarm_change(uint8_t alarm) {
     ++event_count;
   } else {
     ++data.dropped_events;
-    DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] online event queue full\r\n");
+    LOG_WARN(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+             "online event queue full\r\n");
   }
   last_alarm = alarm;
   location_due = 1U;
@@ -69,8 +70,8 @@ void app_report_poll(void) {
   if (!last_online) {
     location_due = 1U;
     last_alarm = alarm;
-    DEBUG_PRINT(DEBUG_LOG_REPORT,
-                "[REPORT] online; report current state, no offline replay\r\n");
+    LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+             "online; report current state, no offline replay\r\n");
   } else
     record_alarm_change(alarm);
   last_online = 1U;
@@ -79,25 +80,27 @@ void app_report_poll(void) {
        ++budget) {
     if (!app_json_command(payload, &command)) {
       ++data.bad_commands;
-      DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] invalid command rejected\r\n");
+      LOG_WARN(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+               "invalid command rejected\r\n");
       continue;
     }
     if (command.type == APP_CMD_LOC) {
       location_due = 1U;
-      DEBUG_PRINT(DEBUG_LOG_REPORT,
-                  "[REPORT] immediate location requested\r\n");
+      LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+               "immediate location requested\r\n");
     } else if (command.type == APP_CMD_CLEAR) {
       /* Remote clear is idempotent; a repeated command must never create an
        * alarm. */
       if (app_fall_get_data()->state == APP_FALL_ALARM)
         app_fall_toggle_alarm();
       record_alarm_change(app_fall_get_data()->state == APP_FALL_ALARM);
-      DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] remote clear requested\r\n");
+      LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+               "remote clear requested\r\n");
     } else {
       data.interval_seconds = command.seconds;
       location_tick = now;
-      DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] interval=%lu seconds\r\n",
-                  (unsigned long)command.seconds);
+      LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT,
+               "interval=%lu seconds\r\n", (unsigned long)command.seconds);
     }
   }
   if ((uint32_t)(now - location_tick) >= data.interval_seconds * 1000U)
@@ -106,7 +109,7 @@ void app_report_poll(void) {
     if (app_json_event(payload, sizeof(payload), &events[event_tail].snapshot,
                        events[event_tail].fall) &&
         BSP_ESP_Publish(BSP_ESP_TOPIC_ALARM, payload)) {
-      DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] %s\r\n", payload);
+      LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT, "%s\r\n", payload);
       event_tail = (uint8_t)((event_tail + 1U) % APP_REPORT_EVENT_QUEUE_SIZE);
       --event_count;
     }
@@ -114,7 +117,7 @@ void app_report_poll(void) {
     app_json_snapshot_t value = snapshot();
     if (app_json_location(payload, sizeof(payload), &value) &&
         BSP_ESP_Publish(BSP_ESP_TOPIC_LOC, payload)) {
-      DEBUG_PRINT(DEBUG_LOG_REPORT, "[REPORT] %s\r\n", payload);
+      LOG_INFO(DEBUG_LOG_REPORT_ENABLE, LOG_TAG_REPORT, "%s\r\n", payload);
       location_tick = now;
       location_due = 0U;
     }

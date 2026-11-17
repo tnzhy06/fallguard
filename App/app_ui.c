@@ -293,8 +293,7 @@ static const char *network_stage(void) {
   case BSP_ESP_UNSUPPORTED: return "模块固件不支持";
   case BSP_ESP_BACKOFF: case BSP_ESP_RESET_LOW: return "等待重新连接";
   case BSP_ESP_MQTT_CLEAN: case BSP_ESP_MQTT_USER: case BSP_ESP_MQTT_CONFIG:
-  case BSP_ESP_MQTT_CONNECT: case BSP_ESP_MQTT_SUBSCRIBE:
-  case BSP_ESP_MQTT_SUBSCRIBE_QUERY: return "正在连接云端";
+  case BSP_ESP_MQTT_CONNECT: case BSP_ESP_MQTT_SUBSCRIBE: return "正在连接云端";
   default: return "正在连接网络";
   }
 }
@@ -374,7 +373,7 @@ void app_ui_boot_log(const char *message, app_ui_boot_level_t level) {
   snprintf(boot_lines[boot_count].text, BOOT_LOG_TEXT_BYTES, "%s", message);
   boot_lines[boot_count++].level = level;
   dirty = 1U;
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[BOOT] %s\r\n", message);
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT, "%s\r\n", message);
 }
 
 void app_ui_boot_hardware_done(void) {
@@ -442,11 +441,12 @@ void app_ui_poll(void) {
     if (state == ST7789_READY) {
       dirty = 1U;
       rendering = 0U;
-      DEBUG_PRINT(DEBUG_LOG_STATUS,
-                  "[LCD] SPI controller configured; first frame pending\r\n");
+      LOG_INFO(DEBUG_LOG_LCD_ENABLE, LOG_TAG_LCD,
+               "SPI controller configured; first frame pending\r\n");
     } else if (state == ST7789_ERROR)
-      DEBUG_PRINT(DEBUG_LOG_ERRORS, "[LCD] SPI/DMA error; retry in %lu ms\r\n",
-                  (unsigned long)LCD_RETRY_MS);
+      LOG_ERROR(DEBUG_LOG_LCD_ENABLE, LOG_TAG_LCD,
+                "SPI/DMA error; retry in %lu ms\r\n",
+                (unsigned long)LCD_RETRY_MS);
   }
   if ((state != ST7789_READY) || ST7789_IsBusy())
     return;

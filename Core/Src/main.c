@@ -189,42 +189,42 @@ boot_peripherals:
   MX_I2S2_Init();
   boot_log_step("音频接口已就绪", APP_UI_BOOT_OK);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "\r\n[BOOT] fallguard\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT, "[BOOT] HCLK=%lu Hz LSE_READY=%lu\r\n",
-              (unsigned long)HAL_RCC_GetHCLKFreq(),
-              (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT, "fallguard\r\n");
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "HCLK=%lu Hz LSE_READY=%lu\r\n",
+           (unsigned long)HAL_RCC_GetHCLKFreq(),
+           (unsigned long)(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) != RESET));
   if (!BSP_RTC_IsHardwareReady())
-    DEBUG_PRINT(DEBUG_LOG_ERRORS,
-                "[RTC] LSE/RTC unavailable; time invalid, local functions continue\r\n");
+    LOG_WARN(DEBUG_LOG_RTC_ENABLE, LOG_TAG_RTC,
+             "LSE/RTC unavailable; time invalid, local functions continue\r\n");
 
   if (HAL_TIM_Base_Start(&htim2) != HAL_OK) {
-    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[TIM] TIM2 start failed\r\n");
+    LOG_ERROR(DEBUG_LOG_TIM_ENABLE, LOG_TAG_TIM, "TIM2 start failed\r\n");
     Error_Handler();
   }
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT,
-              "[MPU] PB6=SCL PB7=SDA PA1=INT @0x%02X; calibration=%u samples, "
-              "keep STILL\r\n",
-              (unsigned int)MPU6050_I2C_ADDRESS,
-              (unsigned int)BSP_MPU6050_CALIBRATION_SAMPLES);
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "MPU PB6=SCL PB7=SDA PA1=INT @0x%02X; calibration=%u samples, "
+           "keep STILL\r\n",
+           (unsigned int)MPU6050_I2C_ADDRESS,
+           (unsigned int)BSP_MPU6050_CALIBRATION_SAMPLES);
   app_init();
   gps_receive_start();
   gps_rx_retry_tick = HAL_GetTick();
   esp_receive_start();
   esp_rx_retry_tick = HAL_GetTick();
   app_ui_boot_hardware_done();
-  DEBUG_PRINT(DEBUG_LOG_BOOT,
-              "[GPS] TX->PA3, USART2 115200 8N1, stale=%lu ms\r\n",
-              (unsigned long)GPS_STALE_MS);
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "GPS TX->PA3, USART2 115200 8N1, stale=%lu ms\r\n",
+           (unsigned long)GPS_STALE_MS);
 
-  DEBUG_PRINT(DEBUG_LOG_BOOT,
-              "[TIM] TIM2 started; MQTT/RTC pages show network and time\r\n");
-  DEBUG_PRINT(
-      DEBUG_LOG_BOOT,
-      "[LCD] ST7789 240x240 SPI1 18MHz PA5=SCK PA7=MOSI; init pending\r\n");
-  DEBUG_PRINT(DEBUG_LOG_BOOT,
-              "[KEY] K1=LCD page; K2=test alarm; debounce=%lu ms\r\n",
-              (unsigned long)KEY_DEBOUNCE_MS);
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "TIM2 started; MQTT/RTC pages show network and time\r\n");
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "LCD ST7789 240x240 SPI1 9MHz PA5=SCK PA7=MOSI; init pending\r\n");
+  LOG_INFO(DEBUG_LOG_BOOT_ENABLE, LOG_TAG_BOOT,
+           "KEY K1=LCD page; K2=test alarm; debounce=%lu ms\r\n",
+           (unsigned long)KEY_DEBOUNCE_MS);
   /* USER CODE END 2 */
 
   /* Infinite loop */

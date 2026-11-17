@@ -22,7 +22,7 @@ INT → PA1，SCL → PB6，SDA → PB7，AD0 默认接地。PA1 使用上升沿
 
 `HAL_I2C_MemRxCpltCallback` 和 `HAL_I2C_ErrorCallback` 按句柄路由到 BSP，仅发布完成或错误通知。主循环完成解析、校准、滤波和日志；采样缓冲区在传输和解析结束前不复用。初始化寄存器读写仍使用有限超时的轮询接口，且只在采样事务停止时执行。
 
-主循环没有待处理中断时直接返回。读取期间再次到达的中断保留到下一轮，一轮合并已积累的通知并读取当前一帧。锁存期间多次数据更新会覆盖旧帧。`bsp_mpu6050_sample_t.irq_count` 记录已处理的中断序号，开启 `DEBUG_LOG_MPU_ACCEL` 后可观察 `irq=` 日志。
+主循环没有待处理中断时直接返回。读取期间再次到达的中断保留到下一轮，一轮合并已积累的通知并读取当前一帧。锁存期间多次数据更新会覆盖旧帧。`bsp_mpu6050_sample_t.irq_count` 记录已处理的中断序号，开启 `DEBUG_LOG_DEBUG_ENABLE` 和 `DEBUG_TRACE_MPU_ACCEL` 后可观察 `irq=` 日志。
 
 默认 250 ms 没有有效中断样本或 I2C 失败时进入故障状态，2 秒后释放总线、重新初始化、使能 DATA_RDY 并校准。地址、分频、DLPF、Kalman 参数、校准数量和恢复超时统一在 `App/app_config.h` 管理。恢复后需保持设备静止。
 
@@ -36,4 +36,4 @@ INT → PA1，SCL → PB6，SDA → PB7，AD0 默认接地。PA1 使用上升沿
 
 板上连接 INT → PA1，上电静置完成校准后观察样本和 `irq_count` 增加。断开 INT 后应在配置的超时时间内显示传感器故障，重新连接并静置后应自动恢复。实际中断频率和并发负载下的采样间隔需通过开发板测量。
 
-调试开关由 `App/app_config.h` 的 `DEBUG_OUTPUT_ENABLE` 和 `DEBUG_LOG_ERRORS` 管理，`BSP/bsp_log.h` 提供 `DEBUG_PRINT` 日志接口。
+调试开关由 `App/app_config.h` 的总开关、日志级别、`DEBUG_LOG_MPU_ENABLE` 模块开关和详细跟踪开关共同管理；`BSP/bsp_log.h` 提供统一的 `LOG_INFO`、`LOG_WARN`、`LOG_ERROR` 和 `LOG_DEBUG` 接口。

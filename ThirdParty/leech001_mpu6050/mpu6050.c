@@ -64,9 +64,10 @@ static uint8_t i2c_ok(I2C_HandleTypeDef *i2c, HAL_StatusTypeDef status,
     /* Snapshot the failed transaction before any subsequent bus access. */
     error = HAL_I2C_GetError(i2c);
     busy = (__HAL_I2C_GET_FLAG(i2c, I2C_FLAG_BUSY) != RESET) ? 1U : 0U;
-    DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] %c reg=0x%02X HAL=%u err=0x%08lX BUSY=%u\r\n",
-           operation, (unsigned int)reg, (unsigned int)status,
-           (unsigned long)error, busy);
+    LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+              "%c reg=0x%02X HAL=%u err=0x%08lX BUSY=%u\r\n", operation,
+              (unsigned int)reg, (unsigned int)status, (unsigned long)error,
+              busy);
     return 0U;
 }
 
@@ -78,7 +79,8 @@ uint8_t mpu6050_reset(I2C_HandleTypeDef *i2c)
 
     if (i2c_ok(i2c, status, 'W', 0x6B) == 0U)
     {
-        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] failed at device reset\r\n");
+        LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+                  "failed at device reset\r\n");
         return 0U;
     }
     return 1U;
@@ -103,7 +105,9 @@ uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c)
         return 0U;
     if (check[0] != 0x68U)
     {
-        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] WHO_AM_I=0x%02X expected=0x68\r\n", (unsigned int)check[0]);
+        LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+                  "WHO_AM_I=0x%02X expected=0x68\r\n",
+                  (unsigned int)check[0]);
         return 0U;
     }
 
@@ -126,9 +130,10 @@ uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c)
     {
         if (check[i] != expected[i])
         {
-            DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] verify reg=0x%02X got=0x%02X expected=0x%02X\r\n",
-                   (unsigned int)(0x19U + i), (unsigned int)check[i],
-                   (unsigned int)expected[i]);
+            LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+                      "verify reg=0x%02X got=0x%02X expected=0x%02X\r\n",
+                      (unsigned int)(0x19U + i), (unsigned int)check[i],
+                      (unsigned int)expected[i]);
             return 0U;
         }
     }
@@ -138,8 +143,9 @@ uint8_t mpu6050_configure(I2C_HandleTypeDef *i2c)
         return 0U;
     if ((check[0] != MPU6050_INT_LATCHED) || (check[1] != 0U))
     {
-        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] INT config mismatch: pin=0x%02X enable=0x%02X\r\n",
-                    (unsigned int)check[0], (unsigned int)check[1]);
+        LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+                  "INT config mismatch: pin=0x%02X enable=0x%02X\r\n",
+                  (unsigned int)check[0], (unsigned int)check[1]);
         return 0U;
     }
     return 1U;
@@ -166,7 +172,9 @@ uint8_t mpu6050_enable_data_ready(I2C_HandleTypeDef *i2c)
         return 0U;
     if (value != MPU6050_INT_DATA_READY)
     {
-        DEBUG_PRINT(DEBUG_LOG_ERRORS, "[MPU] DATA_RDY enable readback=0x%02X\r\n", (unsigned int)value);
+        LOG_ERROR(DEBUG_LOG_MPU_ENABLE, LOG_TAG_MPU,
+                  "DATA_RDY enable readback=0x%02X\r\n",
+                  (unsigned int)value);
         return 0U;
     }
     return 1U;

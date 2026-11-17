@@ -28,12 +28,12 @@ void app_audio_poll(uint8_t alarm_active) {
     if (alarm_active) {
       if (BSP_AUDIO_PlayLoopWithGap(app_alarm_pcm, APP_ALARM_PCM_FRAMES,
                                     APP_AUDIO_REPEAT_GAP_MS))
-        DEBUG_PRINT(DEBUG_LOG_AUDIO,
-                    "[AUDIO] alarm started: 16kHz mono, repeat gap=%lu ms\r\n",
-                    (unsigned long)APP_AUDIO_REPEAT_GAP_MS);
+        LOG_INFO(DEBUG_LOG_AUDIO_ENABLE, LOG_TAG_AUDIO,
+                 "alarm started: 16kHz mono, repeat gap=%lu ms\r\n",
+                 (unsigned long)APP_AUDIO_REPEAT_GAP_MS);
     } else {
       BSP_AUDIO_Stop();
-      DEBUG_PRINT(DEBUG_LOG_AUDIO, "[AUDIO] stopped\r\n");
+      LOG_INFO(DEBUG_LOG_AUDIO_ENABLE, LOG_TAG_AUDIO, "stopped\r\n");
     }
   }
   /* An error stays latched during this alarm; clearing it allows the next alarm
@@ -41,9 +41,9 @@ void app_audio_poll(uint8_t alarm_active) {
   audio = BSP_AUDIO_GetData();
   if (audio->errors != last_errors) {
     last_errors = audio->errors;
-    DEBUG_PRINT(DEBUG_LOG_ERRORS || DEBUG_LOG_AUDIO,
-                "[AUDIO] error=0x%08lX count=%lu\r\n",
-                (unsigned long)audio->last_error, (unsigned long)audio->errors);
+    LOG_ERROR(DEBUG_LOG_AUDIO_ENABLE, LOG_TAG_AUDIO,
+              "error=0x%08lX count=%lu\r\n",
+              (unsigned long)audio->last_error, (unsigned long)audio->errors);
   }
 }
 
